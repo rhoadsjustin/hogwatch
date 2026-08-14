@@ -16,6 +16,14 @@ export type HogIndex = {
   development: number;
 };
 
+/** HOG Index component weights. These must sum to one. */
+export const HOG_INDEX_WEIGHTS = {
+  offense: 0.3,
+  defense: 0.3,
+  coaching: 0.25,
+  development: 0.15,
+} as const;
+
 export type Game = {
   id: string;
   week: number;
@@ -53,5 +61,10 @@ export type Player = {
 
 export const calculateHogIndex = (x: Omit<HogIndex, 'total'>): HogIndex => ({
   ...x,
-  total: Math.round(x.offense * .3 + x.defense * .3 + x.coaching * .25 + x.development * .15),
+  total: Math.round(
+    x.offense * HOG_INDEX_WEIGHTS.offense +
+      x.defense * HOG_INDEX_WEIGHTS.defense +
+      x.coaching * HOG_INDEX_WEIGHTS.coaching +
+      x.development * HOG_INDEX_WEIGHTS.development,
+  ),
 });
