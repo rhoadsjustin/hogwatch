@@ -1,0 +1,1 @@
+{"name":"@hogwatch/mcp","version":"0.1.0","private":true,"type":"module","scripts":{"dev":"tsx src/server.ts"},"dependencies":{"@hogwatch/core":"*","@modelcontextprotocol/sdk":"^1.30.0","zod":"^3.24.1"},"devDependencies":{"tsx":"^4.19.2","typescript":"^5.7.2"}}

@@ -1,0 +1,3 @@
+import { AskCard } from '../../components/AskCard';
+const metrics=[['Pressure allowed','34% → 29%','Improving'],['Defensive pressure','31% → 37%','Improving'],['Rush success','46% → 48%','Improving'],['Explosives allowed','4 → 5','Watch'],['Missed tackles','9 → 8','Improving'],['Red-zone TD','60% → 67%','Improving']];
+export default function Trends(){return <div className="shell"><a href="/">← Season</a><section className="detailHead"><span>2026</span><h1>Trend Explorer</h1><p>Rolling indicators for whether Arkansas is actually improving.</p></section><div className="trendcards">{metrics.map(([a,b,c])=><article className="card" key={a}><span>{a}</span><h2>{b}</h2><b>{c}</b></article>)}</div><AskCard label="Ask ChatGPT about these trends" /></div>}

@@ -1,0 +1,10 @@
+{
+  "name": "hogwatch",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "npm run dev -w @hogwatch/web",
+    "dev:mcp": "npm run dev -w @hogwatch/mcp",
+    "build": "npm run build -w @hogwatch/web"
+  }
+}
