@@ -10,6 +10,7 @@ export type AskContext = {
 
 type AskCardProps = {
   context: AskContext;
+  inFlow?: boolean;
   label?: string;
 };
 
@@ -17,7 +18,7 @@ type AskCardProps = {
  * Keeps the future ChatGPT handoff as compact, provider-neutral data. A host
  * integration can read `data-hogwatch-context` without parsing a prose prompt.
  */
-export function AskCard({ context, label = 'Ask ChatGPT about this' }: AskCardProps) {
+export function AskCard({ context, inFlow = false, label = 'Ask ChatGPT about this' }: AskCardProps) {
   const [queued, setQueued] = useState(false);
   const serializedContext = JSON.stringify(context);
   const queueContext = () => {
@@ -31,6 +32,7 @@ export function AskCard({ context, label = 'Ask ChatGPT about this' }: AskCardPr
       className="ask"
       data-hogwatch-context={serializedContext}
       onClick={queueContext}
+      style={inFlow ? { bottom: 'auto', position: 'relative', zIndex: 0 } : undefined}
       type="button"
     >
       <span className="askSpark" aria-hidden="true">✦</span>

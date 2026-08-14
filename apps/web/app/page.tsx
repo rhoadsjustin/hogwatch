@@ -73,7 +73,7 @@ export default function Home() {
         <div className="playerLinks">{players.map((player) => <Link href={`/players/${player.id}`} key={player.id}><span>#{player.number} · {player.position}</span><b>{player.name}</b><i>Open profile →</i></Link>)}</div>
       </section>
 
-      <AskCard context={{ entity: 'season', entityId: 'arkansas-2026', metricIds: ['hog-index', 'pressure-allowed', 'four-man-pressure', 'explosives-allowed'] }} label="Ask whether Arkansas is actually improving" />
+      <AskCard context={{ entity: 'season', entityId: 'arkansas-2026', metricIds: ['hog-index', 'pressure-allowed', 'four-man-pressure', 'explosives-allowed'] }} inFlow label="Ask whether Arkansas is actually improving" />
     </div>
   );
 }
