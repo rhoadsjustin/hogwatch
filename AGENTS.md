@@ -61,6 +61,12 @@ Every major detail view should include an `Ask ChatGPT about this` affordance. B
 - Avoid unnecessary dependencies.
 - Do not commit secrets; document required variables in `.env.example`.
 
+## Pull request evidence
+- Every pull request description must state its visual impact. For any change that affects a rendered surface, embed current screenshots in the description so reviewers can validate it without running the branch.
+- Capture at least one affected mobile route at 390px wide and one affected desktop route. Label each image with its route and viewport; include additional state screenshots when the change has meaningful variants (for example, empty, future-game, error, or expanded states).
+- Use real rendered evidence from the PR branch, not mockups or local-only file paths. Prefer GitHub-hosted Markdown images; if screenshots are versioned as review artifacts, keep them under `docs/pr-screenshots/` and link the exact branch files from the PR description.
+- For a non-visual PR, say `Visual impact: none` in the description rather than silently omitting the evidence section.
+
 ## Initial Codex objective
 Make the existing starter production-shaped and visually faithful before expanding scope:
 1. Verify install/build/typecheck.
