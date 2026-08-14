@@ -14,11 +14,22 @@ HogWatch helps Arkansas fans evaluate the 2026 Razorbacks beyond wins and losses
 
 ## Run
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
 Run MCP separately with `npm run dev:mcp`.
+
+## Verification
+
+```bash
+npm run typecheck
+npm test
+npm run build
+```
+
+The HOG Index is calculated in `@hogwatch/core` with documented component
+weights: offense 30%, defense 30%, coaching 25%, and development 15%.
 
 ## Architecture
 `packages/core` owns domain contracts and scoring. `apps/web` consumes those contracts through a repository. `apps/mcp` exposes the same data as tools. Replace the mock repository with a real stats provider without changing the screens.

@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "npm run dev -w @hogwatch/web",
     "dev:mcp": "npm run dev -w @hogwatch/mcp",
-    "build": "npm run build -w @hogwatch/web"
+    "build": "npm run build -w @hogwatch/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
   }
 }
