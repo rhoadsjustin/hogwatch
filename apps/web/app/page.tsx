@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { AskCard } from '../components/AskCard';
+import { DataProvenance } from '../components/DataProvenance';
 import { HogIndexCard } from '../components/HogIndexCard';
 import { MetricCard } from '../components/MetricCard';
 import { SectionHeading } from '../components/PageChrome';
@@ -33,6 +34,8 @@ export default async function Home() {
         </div>
         <div className="recordBlock"><span className="overline">RECORD</span><strong>{dashboard.record.replace('-', '–')}</strong><span>Projected: {dashboard.projectedRecord}</span></div>
       </section>
+
+      <DataProvenance provenance={dashboard.provenance} />
 
       <section className="dashboardLead" aria-label="Season overview">
         {dashboard.hogIndex && <HogIndexCard delta={dashboard.hogIndexDelta ?? 0} index={dashboard.hogIndex} week={latest?.week ?? 0} />}

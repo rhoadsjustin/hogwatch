@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { AskCard } from '../../../components/AskCard';
+import { DataProvenance } from '../../../components/DataProvenance';
 import { MetricCard } from '../../../components/MetricCard';
 import { BackLink, SectionHeading } from '../../../components/PageChrome';
 import { TrendLine } from '../../../components/TrendLine';
@@ -23,6 +24,7 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
       <div><span className="overline">WEEK {game.week} · {game.date} · {game.location === 'away' ? 'ROAD' : 'HOME'}</span><h1>Arkansas <em>{game.location === 'away' ? 'at' : 'vs.'}</em> {game.opponent}</h1></div>
       {isFinal ? <div className="finalScore"><span>FINAL</span><strong>{game.arkansasScore}<i>–</i>{game.opponentScore}</strong><b className={game.result === 'W' ? 'win' : 'loss'}>{game.result}</b></div> : <div className="finalScore upcomingScore"><span>UP NEXT</span><strong>Preview</strong><b>{game.date}</b></div>}
     </section>
+    <DataProvenance provenance={analysis.provenance} />
     {isFinal ? <>
       <section className="gameThesis"><span className="overline">GAME GRADE</span><h2>{analysis.thesis}</h2><p>{analysis.story}</p></section>
       <section className="sectionBlock compact"><SectionHeading eyebrow="HOG INDEX" title={`${analysis.hogIndex?.total ?? game.hogIndex} against ${game.opponentShort}`} /><div className="gameIndex"><strong>{analysis.hogIndex?.total ?? game.hogIndex}</strong><p>Six points above the opening-week baseline—the opponent-adjusted grade accounts for the road environment and Utah&apos;s defensive profile.</p></div></section>
