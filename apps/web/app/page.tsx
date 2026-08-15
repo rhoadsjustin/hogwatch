@@ -18,8 +18,8 @@ export default async function Home() {
     mockHogWatchRepository.listCoaches(),
     mockHogWatchRepository.listGames(),
     mockHogWatchRepository.listPlayers(),
-    mockHogWatchRepository.getMetricTrend('success-rate'),
-    mockHogWatchRepository.getMetricTrend('pressure-generated'),
+    mockHogWatchRepository.getMetricTrend({ metricId: 'success-rate' }),
+    mockHogWatchRepository.getMetricTrend({ metricId: 'pressure-generated' }),
   ]);
   const latest = dashboard.latestGame;
 

@@ -1,4 +1,7 @@
 import {
+  calculateOpponentAdjustedMetric,
+  calculateRollingAverage,
+  isMetricId,
   calculateHogIndex,
   METRIC_IDS,
   METRIC_METADATA,
@@ -13,6 +16,7 @@ import {
   type MetricComparison,
   type MetricId,
   type MetricTrend,
+  type MetricTrendQuery,
   type Player,
   type PlayerInsight,
   type PlayerReport,
@@ -20,12 +24,53 @@ import {
   type TrendSeries,
 } from '@hogwatch/core';
 
+/**
+ * The provider-facing payload after its vendor-specific fields have been
+ * mapped to HogWatch's canonical metric vocabulary. No UI or MCP code should
+ * depend on the raw provider field names.
+ */
+export type NormalizedMetricValue = {
+  metricId: MetricId;
+  value: number;
+  sourceField: string;
+  sampleSize?: number;
+};
+
+export type ProviderGameInput = Omit<Game, 'metrics'> & {
+  metrics: readonly NormalizedMetricValue[];
+};
+
+export type ProviderSeasonSnapshot = {
+  team: string;
+  season: number;
+  games: readonly ProviderGameInput[];
+  coaches: readonly Coach[];
+  players: readonly Player[];
+  provenance: AnalyticsProvenance;
+};
+
+/** A future vendor adapter implements this small transport boundary only. */
+export interface HogWatchDataProvider {
+  getSeasonSnapshot(input: { team: string; season: number }): Promise<ProviderSeasonSnapshot>;
+}
+
+export const normalizeMetricValues = (values: readonly NormalizedMetricValue[]): Partial<Record<MetricId, number>> => {
+  const metrics: Partial<Record<MetricId, number>> = {};
+  for (const value of values) {
+    if (metrics[value.metricId] !== undefined) {
+      throw new Error(`duplicate metric value for ${value.metricId}`);
+    }
+    metrics[value.metricId] = value.value;
+  }
+  return metrics;
+};
+
 export interface HogWatchRepository {
   getSeasonDashboard(): Promise<SeasonDashboard>;
   getGameAnalysis(gameId: string): Promise<GameAnalysis | undefined>;
   getCoachReport(coachId: string): Promise<CoachReport | undefined>;
   getPlayerReport(playerId: string): Promise<PlayerReport | undefined>;
-  getMetricTrend(metricId: string): Promise<MetricTrend | undefined>;
+  getMetricTrend(query: MetricTrendQuery): Promise<MetricTrend | undefined>;
   compareGames(gameAId: string, gameBId: string): Promise<GameComparison | undefined>;
   listGames(): Promise<Game[]>;
   listCoaches(): Promise<Coach[]>;
@@ -33,8 +78,8 @@ export interface HogWatchRepository {
 }
 
 const games: Game[] = [
-  { id: 'north-alabama', week: 1, opponent: 'North Alabama', opponentShort: 'UNA', location: 'home', result: 'W', arkansasScore: 41, opponentScore: 10, date: 'Sep 5', hogIndex: 68, metrics: { 'success-rate': 44, 'pressure-allowed': 34, 'pressure-generated': 31, explosives: 6, 'explosives-allowed': 4, 'rush-success': 46, 'red-zone-touchdown-rate': 60, 'missed-tackles': 9 } },
-  { id: 'utah', week: 2, opponent: 'Utah', opponentShort: 'UTAH', location: 'away', result: 'L', arkansasScore: 24, opponentScore: 27, date: 'Sep 12', hogIndex: 74, metrics: { 'success-rate': 46, 'pressure-allowed': 29, 'pressure-generated': 37, explosives: 7, 'explosives-allowed': 5, 'rush-success': 48, 'red-zone-touchdown-rate': 67, 'missed-tackles': 8 } },
+  { id: 'north-alabama', week: 1, opponent: 'North Alabama', opponentShort: 'UNA', location: 'home', result: 'W', arkansasScore: 41, opponentScore: 10, date: 'Sep 5', hogIndex: 68, metrics: { 'success-rate': 44, 'pressure-allowed': 34, 'pressure-generated': 31, 'four-man-pressure': 22, explosives: 6, 'explosives-allowed': 4, 'rush-success': 46, 'red-zone-touchdown-rate': 60, 'missed-tackles': 9 }, opponentMetricBaselines: { 'success-rate': { opponentAverage: 48, leagueAverage: 44, sampleSize: 8 }, 'pressure-allowed': { opponentAverage: 28, leagueAverage: 32, sampleSize: 8 }, 'pressure-generated': { opponentAverage: 27, leagueAverage: 32, sampleSize: 8 } } },
+  { id: 'utah', week: 2, opponent: 'Utah', opponentShort: 'UTAH', location: 'away', result: 'L', arkansasScore: 24, opponentScore: 27, date: 'Sep 12', hogIndex: 74, metrics: { 'success-rate': 46, 'pressure-allowed': 29, 'pressure-generated': 37, 'four-man-pressure': 28, explosives: 7, 'explosives-allowed': 5, 'rush-success': 48, 'red-zone-touchdown-rate': 67, 'missed-tackles': 8 }, opponentMetricBaselines: { 'success-rate': { opponentAverage: 42, leagueAverage: 44, sampleSize: 8 }, 'pressure-allowed': { opponentAverage: 37, leagueAverage: 32, sampleSize: 8 }, 'pressure-generated': { opponentAverage: 36, leagueAverage: 32, sampleSize: 8 } } },
   { id: 'georgia', week: 3, opponent: 'Georgia', opponentShort: 'UGA', location: 'home', date: 'Sep 19', metrics: {} },
   { id: 'tulsa', week: 4, opponent: 'Tulsa', opponentShort: 'TLSA', location: 'home', date: 'Sep 26', metrics: {} },
   { id: 'texas-am', week: 5, opponent: 'Texas A&M', opponentShort: 'TAMU', location: 'away', date: 'Oct 3', metrics: {} },
@@ -90,23 +135,34 @@ const playerInsights: Record<string, PlayerInsight> = {
   },
 };
 
-const isMetricId = (metricId: string): metricId is MetricId => METRIC_IDS.includes(metricId as MetricId);
 const completedGames = () => games.filter((game) => game.result);
 
-const makeTrend = (metricId: MetricId): TrendSeries | undefined => {
-  const played = completedGames();
-  const values = played.map((game) => game.metrics[metricId]).filter((value): value is number => value !== undefined);
-  if (values.length === 0) return undefined;
+const makeTrend = (query: MetricTrendQuery): TrendSeries | undefined => {
+  const samples = completedGames().flatMap((game) => {
+    const value = game.metrics[query.metricId];
+    if (value === undefined) return [];
+    const baseline = game.opponentMetricBaselines?.[query.metricId];
+    const normalized = query.adjustment === 'opponent-adjusted' && baseline
+      ? calculateOpponentAdjustedMetric(value, baseline).adjustedValue
+      : value;
+    return [{ week: game.week, value: normalized }];
+  });
+  if (samples.length === 0) return undefined;
+  const values = query.rollingWindow ? calculateRollingAverage(samples.map((sample) => sample.value), query.rollingWindow) : samples.map((sample) => sample.value);
+  const metricId = query.metricId;
   const metadata = METRIC_METADATA[metricId];
-  return { metricId, label: metadata.label, suffix: metadata.suffix, values, weeks: played.slice(0, values.length).map((game) => game.week), goodDirection: metadata.goodDirection };
+  return { metricId, label: metadata.label, suffix: metadata.suffix, values, weeks: samples.map((sample) => sample.week), goodDirection: metadata.goodDirection };
 };
 
-const metricTrend = (metricId: MetricId): MetricTrend | undefined => {
+const metricTrend = (query: MetricTrendQuery): MetricTrend | undefined => {
+  const { metricId } = query;
   if (metricId === 'hog-index') {
     const played = completedGames().filter((game) => game.hogIndex !== undefined);
-    return { metricId, label: METRIC_METADATA[metricId].label, values: played.map((game) => game.hogIndex as number), weeks: played.map((game) => game.week), goodDirection: 'up', provenance: mockProvenance };
+    const rawValues = played.map((game) => game.hogIndex as number);
+    const values = query.rollingWindow ? calculateRollingAverage(rawValues, query.rollingWindow) : rawValues;
+    return { metricId, label: METRIC_METADATA[metricId].label, values, weeks: played.map((game) => game.week), goodDirection: 'up', provenance: mockProvenance };
   }
-  const trend = makeTrend(metricId);
+  const trend = makeTrend(query);
   return trend ? { ...trend, provenance: mockProvenance } : undefined;
 };
 
@@ -151,8 +207,8 @@ export class MockHogWatchRepository implements HogWatchRepository {
     return player && insight ? { player, insight, provenance: mockProvenance } : undefined;
   }
 
-  async getMetricTrend(metricId: string): Promise<MetricTrend | undefined> {
-    return isMetricId(metricId) ? metricTrend(metricId) : undefined;
+  async getMetricTrend(query: MetricTrendQuery): Promise<MetricTrend | undefined> {
+    return metricTrend(query);
   }
 
   async compareGames(gameAId: string, gameBId: string): Promise<GameComparison | undefined> {

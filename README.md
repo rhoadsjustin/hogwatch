@@ -32,7 +32,13 @@ The HOG Index is calculated in `@hogwatch/core` with documented component
 weights: offense 30%, defense 30%, coaching 25%, and development 15%.
 
 ## Architecture
-`packages/core` owns domain contracts, metric metadata, and scoring. `packages/data` owns the `HogWatchRepository` contract and its mock implementation. Both `apps/web` and `apps/mcp` consume that repository, so a future stats provider can replace the mock without changing screens or tool payloads.
+`packages/core` owns domain contracts, canonical advanced-metric metadata,
+opponent adjustment, rolling-window primitives, and scoring. `packages/data`
+owns the `HogWatchRepository` contract, a normalized provider boundary, and
+its mock implementation. Both `apps/web` and `apps/mcp` consume that
+repository, so a future stats provider can replace the mock without changing
+screens or tool payloads. See [the provider contract](docs/DATA_PROVIDER_CONTRACT.md)
+for the required raw data and normalization rules.
 
 ## MCP tools
 

@@ -10,8 +10,8 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const [analysis, pressureAllowedTrend, pressureGeneratedTrend] = await Promise.all([
     mockHogWatchRepository.getGameAnalysis(id),
-    mockHogWatchRepository.getMetricTrend('pressure-allowed'),
-    mockHogWatchRepository.getMetricTrend('pressure-generated'),
+    mockHogWatchRepository.getMetricTrend({ metricId: 'pressure-allowed' }),
+    mockHogWatchRepository.getMetricTrend({ metricId: 'pressure-generated' }),
   ]);
   if (!analysis) notFound();
   const { game } = analysis;

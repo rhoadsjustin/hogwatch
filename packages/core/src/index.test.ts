@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { calculateHogIndex, HOG_INDEX_WEIGHTS } from './index.ts';
+import {
+  calculateHogIndex,
+  calculateOpponentAdjustedMetric,
+  calculateRollingAverage,
+  HOG_INDEX_WEIGHTS,
+  isMetricId,
+  METRIC_METADATA,
+} from './index.ts';
 
 test('HOG Index retains the documented 30/30/25/15 component weights', () => {
   assert.deepEqual(HOG_INDEX_WEIGHTS, {
@@ -35,4 +42,32 @@ test('a perfect score produces a 100-point HOG Index', () => {
     calculateHogIndex({ offense: 100, defense: 100, coaching: 100, development: 100 }).total,
     100,
   );
+});
+
+test('canonical metric metadata includes every documented advanced input', () => {
+  assert.equal(isMetricId('four-man-pressure'), true);
+  assert.equal(isMetricId('turnover-worthy-play-rate'), true);
+  assert.equal(isMetricId('not-a-hogwatch-metric'), false);
+  assert.equal(METRIC_METADATA['yards-before-contact'].valueKind, 'yards');
+  assert.equal(METRIC_METADATA['pre-snap-penalty-rate'].goodDirection, 'down');
+});
+
+test('opponent adjustment preserves units and gives credit for a difficult baseline', () => {
+  const adjusted = calculateOpponentAdjustedMetric(29, {
+    opponentAverage: 37,
+    leagueAverage: 32,
+    sampleSize: 8,
+  });
+
+  assert.deepEqual(adjusted, {
+    rawValue: 29,
+    adjustment: -5,
+    adjustedValue: 24,
+    baseline: { opponentAverage: 37, leagueAverage: 32, sampleSize: 8 },
+  });
+});
+
+test('rolling averages use the available early-season games and validate their window', () => {
+  assert.deepEqual(calculateRollingAverage([44, 46, 52, 48], 3), [44, 45, 47.333, 48.667]);
+  assert.throws(() => calculateRollingAverage([1], 0), /positive integer/);
 });
