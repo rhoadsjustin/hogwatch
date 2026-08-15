@@ -2,6 +2,7 @@ import {
   calculateHogIndex,
   METRIC_IDS,
   METRIC_METADATA,
+  type AnalyticsProvenance,
   type Coach,
   type CoachReport,
   type Game,
@@ -39,6 +40,13 @@ const games: Game[] = [
   { id: 'texas-am', week: 5, opponent: 'Texas A&M', opponentShort: 'TAMU', location: 'away', date: 'Oct 3', metrics: {} },
   { id: 'tennessee', week: 6, opponent: 'Tennessee', opponentShort: 'TENN', location: 'home', date: 'Oct 10', metrics: {} },
 ];
+
+const mockProvenance: AnalyticsProvenance = {
+  source: 'mock',
+  provider: 'HogWatch fixture repository',
+  coverage: '2026 Arkansas schedule through Week 2; future games are placeholders.',
+  updatedAt: '2026-08-15T00:00:00.000Z',
+};
 
 const coaches: Coach[] = [
   { id: 'silverfield', name: 'Ryan Silverfield', role: 'Head Coach', grade: 'B+', note: 'Track discipline, situational decisions, special teams and second-half performance.', scorecard: [{ label: 'Game Management', score: 84, grade: 'A-' }, { label: 'Adjustments', score: 91, grade: 'A' }, { label: 'Discipline', score: 76, grade: 'B' }, { label: 'Development', score: 81, grade: 'B+' }, { label: 'Special Teams', score: 67, grade: 'C+' }] },
@@ -96,9 +104,10 @@ const makeTrend = (metricId: MetricId): TrendSeries | undefined => {
 const metricTrend = (metricId: MetricId): MetricTrend | undefined => {
   if (metricId === 'hog-index') {
     const played = completedGames().filter((game) => game.hogIndex !== undefined);
-    return { metricId, label: METRIC_METADATA[metricId].label, values: played.map((game) => game.hogIndex as number), weeks: played.map((game) => game.week), goodDirection: 'up' };
+    return { metricId, label: METRIC_METADATA[metricId].label, values: played.map((game) => game.hogIndex as number), weeks: played.map((game) => game.week), goodDirection: 'up', provenance: mockProvenance };
   }
-  return makeTrend(metricId);
+  const trend = makeTrend(metricId);
+  return trend ? { ...trend, provenance: mockProvenance } : undefined;
 };
 
 const metricSignal = (metricId: MetricId, latest: Game, previous: Game): Metric | undefined => {
@@ -109,7 +118,7 @@ const metricSignal = (metricId: MetricId, latest: Game, previous: Game): Metric 
   return { id: metricId, label: metadata.label, value, unit: metadata.suffix, delta: value - previousValue, goodDirection: metadata.goodDirection };
 };
 
-const gameAnalysis = (game: Game): GameAnalysis => ({ ...gameCopy[game.id], game, hogIndex: gameHogIndexes[game.id] });
+const gameAnalysis = (game: Game): GameAnalysis => ({ ...gameCopy[game.id], game, hogIndex: gameHogIndexes[game.id], provenance: mockProvenance });
 
 export class MockHogWatchRepository implements HogWatchRepository {
   async getSeasonDashboard(): Promise<SeasonDashboard> {
@@ -121,7 +130,7 @@ export class MockHogWatchRepository implements HogWatchRepository {
     const signalIds: MetricId[] = ['pressure-allowed', 'pressure-generated', 'explosives-allowed'];
     const signals = latestGame && previousGame ? signalIds.map((metricId) => metricSignal(metricId, latestGame, previousGame)).filter((signal): signal is Metric => Boolean(signal)) : [];
     const wins = played.filter((game) => game.result === 'W').length;
-    return { team: 'Arkansas', season: 2026, record: `${wins}-${played.length - wins}`, projectedRecord: '5-7', completedGames: played.length, latestGame, hogIndex: latestIndex, hogIndexDelta: latestIndex && previousIndex ? latestIndex.total - previousIndex.total : undefined, story: 'Protection improved against a real pass rush.', signals };
+    return { team: 'Arkansas', season: 2026, record: `${wins}-${played.length - wins}`, projectedRecord: '5-7', completedGames: played.length, latestGame, hogIndex: latestIndex, hogIndexDelta: latestIndex && previousIndex ? latestIndex.total - previousIndex.total : undefined, story: 'Protection improved against a real pass rush.', signals, provenance: mockProvenance };
   }
 
   async getGameAnalysis(gameId: string): Promise<GameAnalysis | undefined> {
@@ -133,13 +142,13 @@ export class MockHogWatchRepository implements HogWatchRepository {
     const coach = coaches.find((candidate) => candidate.id === coachId);
     const trend = coachTrends[coachId];
     if (!coach || !trend) return undefined;
-    return { coach, implication: trend.implication, trend: { metricId: 'hog-index', label: `${coach.name} score`, values: trend.values, weeks: [1, 2, 3, 4], goodDirection: 'up' } };
+    return { coach, implication: trend.implication, trend: { metricId: 'hog-index', label: `${coach.name} score`, values: trend.values, weeks: [1, 2, 3, 4], goodDirection: 'up' }, provenance: mockProvenance };
   }
 
   async getPlayerReport(playerId: string): Promise<PlayerReport | undefined> {
     const player = players.find((candidate) => candidate.id === playerId);
     const insight = playerInsights[playerId];
-    return player && insight ? { player, insight } : undefined;
+    return player && insight ? { player, insight, provenance: mockProvenance } : undefined;
   }
 
   async getMetricTrend(metricId: string): Promise<MetricTrend | undefined> {
@@ -156,7 +165,7 @@ export class MockHogWatchRepository implements HogWatchRepository {
       if (gameAValue === undefined || gameBValue === undefined) return [];
       return [{ metricId, label: METRIC_METADATA[metricId].label, gameA: gameAValue, gameB: gameBValue, delta: gameBValue - gameAValue, goodDirection: METRIC_METADATA[metricId].goodDirection }];
     });
-    return { gameA, gameB, metricComparisons, summary: 'The process improved from the opener: Arkansas allowed less pressure and generated more of its own, but explosive gains remain the volatile issue.' };
+    return { gameA, gameB, metricComparisons, summary: 'The process improved from the opener: Arkansas allowed less pressure and generated more of its own, but explosive gains remain the volatile issue.', provenance: mockProvenance };
   }
 
   async listGames(): Promise<Game[]> { return games; }
