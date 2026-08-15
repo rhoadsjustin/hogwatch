@@ -3,23 +3,18 @@ import { AskCard } from '../../../components/AskCard';
 import { MetricCard } from '../../../components/MetricCard';
 import { BackLink, SectionHeading } from '../../../components/PageChrome';
 import { TrendLine } from '../../../components/TrendLine';
-import { getGame } from '../../../lib/data';
-
-const labels: Record<string, { label: string; suffix?: string; tone?: 'good' | 'watch' }> = {
-  successRate: { label: 'Offensive success rate', suffix: '%', tone: 'good' },
-  pressureAllowed: { label: 'Pressure allowed', suffix: '%', tone: 'good' },
-  pressureGenerated: { label: 'Pressure generated', suffix: '%', tone: 'good' },
-  explosives: { label: 'Explosive plays' },
-  explosivesAllowed: { label: 'Explosives allowed', tone: 'watch' },
-  rushSuccess: { label: 'Rush success', suffix: '%', tone: 'good' },
-  redZone: { label: 'Red-zone TD rate', suffix: '%', tone: 'good' },
-  missedTackles: { label: 'Missed tackles', tone: 'good' },
-};
+import { mockHogWatchRepository } from '@hogwatch/data';
+import { METRIC_METADATA, type MetricId } from '@hogwatch/core';
 
 export default async function GamePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const game = getGame(id);
-  if (!game) notFound();
+  const [analysis, pressureAllowedTrend, pressureGeneratedTrend] = await Promise.all([
+    mockHogWatchRepository.getGameAnalysis(id),
+    mockHogWatchRepository.getMetricTrend('pressure-allowed'),
+    mockHogWatchRepository.getMetricTrend('pressure-generated'),
+  ]);
+  if (!analysis) notFound();
+  const { game } = analysis;
   const isFinal = Boolean(game.result);
 
   return <div className="shell detailPage">
@@ -29,13 +24,14 @@ export default async function GamePage({ params }: { params: Promise<{ id: strin
       {isFinal ? <div className="finalScore"><span>FINAL</span><strong>{game.arkansasScore}<i>–</i>{game.opponentScore}</strong><b className={game.result === 'W' ? 'win' : 'loss'}>{game.result}</b></div> : <div className="finalScore upcomingScore"><span>UP NEXT</span><strong>Preview</strong><b>{game.date}</b></div>}
     </section>
     {isFinal ? <>
-      <section className="gameThesis"><span className="overline">GAME GRADE</span><h2>{game.result === 'W' ? 'A winning formula showed up on film.' : 'A better process, but not enough finishing.'}</h2><p>Arkansas protected the quarterback better and found more pressure without blitzing. The concern: explosive gains still created too much volatility.</p></section>
-      <section className="sectionBlock compact"><SectionHeading eyebrow="HOG INDEX" title={`${game.hogIndex} against ${game.opponentShort}`} /><div className="gameIndex"><strong>{game.hogIndex}</strong><p>Six points above the opening-week baseline—the opponent-adjusted grade accounts for the road environment and Utah&apos;s defensive profile.</p></div></section>
-      <section className="sectionBlock compact"><SectionHeading eyebrow="THE SCORECARD" title="Every snap tells a different part" /><div className="metricGrid">{Object.entries(game.metrics).map(([metricId, value]) => {
-        const metric = labels[metricId];
-        return <MetricCard detail={metricId === 'pressureAllowed' ? '↓ 5 points from Week 1' : metricId === 'explosivesAllowed' ? '↑ 1 from Week 1' : 'Week 2 result'} key={metricId} label={metric?.label ?? metricId} tone={metric?.tone} trend={metricId === 'explosivesAllowed' ? 'down' : 'up'} value={`${value}${metric?.suffix ?? ''}`} />;
+      <section className="gameThesis"><span className="overline">GAME GRADE</span><h2>{analysis.thesis}</h2><p>{analysis.story}</p></section>
+      <section className="sectionBlock compact"><SectionHeading eyebrow="HOG INDEX" title={`${analysis.hogIndex?.total ?? game.hogIndex} against ${game.opponentShort}`} /><div className="gameIndex"><strong>{analysis.hogIndex?.total ?? game.hogIndex}</strong><p>Six points above the opening-week baseline—the opponent-adjusted grade accounts for the road environment and Utah&apos;s defensive profile.</p></div></section>
+      <section className="sectionBlock compact"><SectionHeading eyebrow="THE SCORECARD" title="Every snap tells a different part" /><div className="metricGrid">{(Object.entries(game.metrics) as [MetricId, number][]).map(([metricId, value]) => {
+        const metric = METRIC_METADATA[metricId];
+        const isConcern = metricId === 'explosives-allowed';
+        return <MetricCard detail={metricId === 'pressure-allowed' ? '↓ 5 points from Week 1' : isConcern ? '↑ 1 from Week 1' : 'Week 2 result'} key={metricId} label={metric.label} tone={isConcern ? 'watch' : 'good'} trend={isConcern ? 'down' : 'up'} value={`${value}${metric.suffix ?? ''}`} />;
       })}</div></section>
-      <section className="sectionBlock compact"><SectionHeading eyebrow="GAME-TO-GAME" title="The pressure story" /><div className="trendPair"><TrendLine label="Pressure allowed" suffix="%" values={[34, 29]} /><TrendLine label="Pressure generated" suffix="%" tone="cardinal" values={[31, 37]} /></div></section>
+      <section className="sectionBlock compact"><SectionHeading eyebrow="GAME-TO-GAME" title="The pressure story" /><div className="trendPair">{pressureAllowedTrend && <TrendLine label={pressureAllowedTrend.label} suffix={pressureAllowedTrend.suffix} values={pressureAllowedTrend.values} />}{pressureGeneratedTrend && <TrendLine label={pressureGeneratedTrend.label} suffix={pressureGeneratedTrend.suffix} tone="cardinal" values={pressureGeneratedTrend.values} />}</div></section>
     </> : <section className="pregameCard"><span className="overline">PREGAME DASHBOARD</span><h2>The evidence starts before kickoff.</h2><p>HogWatch will add the matchup context, opponent profile, and postgame grade here. Once the game is final, the same scorecard will show what changed from the season baseline.</p><div><b>Watch after kickoff</b><span>Pressure allowed · Early-down success · Four-man pressure · Explosives</span></div></section>}
     <AskCard context={{ entity: 'game', entityId: game.id, metricIds: ['hog-index', 'success-rate', 'pressure-allowed', 'pressure-generated', 'explosives-allowed'] }} label={`Ask about Arkansas vs. ${game.opponent}`} />
   </div>;

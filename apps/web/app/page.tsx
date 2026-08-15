@@ -4,46 +4,58 @@ import { HogIndexCard } from '../components/HogIndexCard';
 import { MetricCard } from '../components/MetricCard';
 import { SectionHeading } from '../components/PageChrome';
 import { TrendLine } from '../components/TrendLine';
-import { coaches, games, players } from '../lib/data';
+import { mockHogWatchRepository } from '@hogwatch/data';
 
-const latestIndex = { total: 74, offense: 72, defense: 78, coaching: 76, development: 71 };
+const signalDetails = {
+  'pressure-allowed': '34% in Week 1',
+  'pressure-generated': '31% in Week 1',
+  'explosives-allowed': 'One more than Week 1',
+} as const;
 
-export default function Home() {
-  const played = games.filter((game) => game.result);
-  const latest = played.at(-1);
+export default async function Home() {
+  const [dashboard, coaches, games, players, successRate, pressureGenerated] = await Promise.all([
+    mockHogWatchRepository.getSeasonDashboard(),
+    mockHogWatchRepository.listCoaches(),
+    mockHogWatchRepository.listGames(),
+    mockHogWatchRepository.listPlayers(),
+    mockHogWatchRepository.getMetricTrend('success-rate'),
+    mockHogWatchRepository.getMetricTrend('pressure-generated'),
+  ]);
+  const latest = dashboard.latestGame;
 
   return (
     <div className="shell dashboard">
       <section className="seasonMasthead">
         <div className="mastheadCopy">
-          <span className="overline">2026 SEASON · THROUGH WEEK 2</span>
+          <span className="overline">{dashboard.season} SEASON · THROUGH WEEK {dashboard.completedGames}</span>
           <h1>Is Arkansas<br /><em>getting better?</em></h1>
           <p>HogWatch grades the habits that travel—not just the final score.</p>
         </div>
-        <div className="recordBlock"><span className="overline">RECORD</span><strong>1–1</strong><span>Projected: 5–7</span></div>
+        <div className="recordBlock"><span className="overline">RECORD</span><strong>{dashboard.record.replace('-', '–')}</strong><span>Projected: {dashboard.projectedRecord}</span></div>
       </section>
 
       <section className="dashboardLead" aria-label="Season overview">
-        <HogIndexCard delta={6} index={latestIndex} week={latest?.week ?? 0} />
+        {dashboard.hogIndex && <HogIndexCard delta={dashboard.hogIndexDelta ?? 0} index={dashboard.hogIndex} week={latest?.week ?? 0} />}
         <article className="storyCard">
           <span className="overline">THE FILM SAYS</span>
-          <h2>Protection improved against a real pass rush.</h2>
+          <h2>{dashboard.story}</h2>
           <p>Pressure allowed fell five points at Utah while the defense generated its best four-man heat of the young season.</p>
           {latest && <Link className="textLink" href={`/games/${latest.id}`}>Read the Utah game grade <span>→</span></Link>}
         </article>
       </section>
 
       <section className="signalGrid" aria-label="Biggest signals">
-        <MetricCard label="Pressure allowed" value="29%" detail="34% in Week 1" tone="good" trend="up" />
-        <MetricCard label="Four-man pressure" value="37%" detail="31% in Week 1" tone="good" trend="up" />
-        <MetricCard label="Explosives allowed" value="5" detail="One more than Week 1" tone="watch" trend="down" />
+        {dashboard.signals.map((signal) => {
+          const improving = signal.goodDirection === 'up' ? (signal.delta ?? 0) >= 0 : (signal.delta ?? 0) <= 0;
+          return <MetricCard detail={signalDetails[signal.id as keyof typeof signalDetails]} key={signal.id} label={signal.id === 'pressure-generated' ? 'Four-man pressure' : signal.label} tone={improving ? 'good' : 'watch'} trend={improving ? 'up' : 'down'} value={`${signal.value}${signal.unit ?? ''}`} />;
+        })}
       </section>
 
       <section className="sectionBlock">
         <SectionHeading eyebrow="WEEK-TO-WEEK" title="What is moving" action={<Link className="quietLink" href="/trends">Explore all trends →</Link>} />
         <div className="trendPair">
-          <TrendLine label="Offensive success rate" suffix="%" values={[44, 46]} />
-          <TrendLine label="Defensive pressure" suffix="%" values={[31, 37]} tone="cardinal" />
+          {successRate && <TrendLine label={successRate.label} suffix={successRate.suffix} values={successRate.values} />}
+          {pressureGenerated && <TrendLine label="Defensive pressure" suffix={pressureGenerated.suffix} values={pressureGenerated.values} tone="cardinal" />}
         </div>
       </section>
 

@@ -9,8 +9,8 @@ HogWatch helps Arkansas fans evaluate the 2026 Razorbacks beyond wins and losses
 - Next.js responsive web UI matching the approved mock direction
 - Season dashboard, game detail, coach detail, player detail, trends
 - Shared TypeScript domain model and HOG Index calculator
-- Mock 2026 Arkansas data behind a repository layer
-- MCP server skeleton exposing season/game/coach/trend tools
+- Mock 2026 Arkansas data behind a shared, provider-independent repository
+- MCP server exposing the same season, game, coach, player, trend, and comparison data as the web UI
 
 ## Run
 ```bash
@@ -32,6 +32,15 @@ The HOG Index is calculated in `@hogwatch/core` with documented component
 weights: offense 30%, defense 30%, coaching 25%, and development 15%.
 
 ## Architecture
-`packages/core` owns domain contracts and scoring. `apps/web` consumes those contracts through a repository. `apps/mcp` exposes the same data as tools. Replace the mock repository with a real stats provider without changing the screens.
+`packages/core` owns domain contracts, metric metadata, and scoring. `packages/data` owns the `HogWatchRepository` contract and its mock implementation. Both `apps/web` and `apps/mcp` consume that repository, so a future stats provider can replace the mock without changing screens or tool payloads.
+
+## MCP tools
+
+- `get_season_dashboard`
+- `get_game_analysis`
+- `get_coach_report`
+- `get_player_report`
+- `get_metric_trend`
+- `compare_games`
 
 See `AGENTS.md` for the Codex handoff and implementation priorities.

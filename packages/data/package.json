@@ -1,0 +1,11 @@
+{
+  "name": "@hogwatch/data",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": { "typecheck": "tsc --noEmit", "test": "tsx --test src/index.test.ts" },
+  "dependencies": { "@hogwatch/core": "*" },
+  "devDependencies": { "@types/node": "^22.10.2", "tsx": "^4.19.2", "typescript": "^5.7.2" }
+}
