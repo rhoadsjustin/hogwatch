@@ -15,11 +15,11 @@ export default async function Trends() {
   const trendIds = ['hog-index', 'success-rate', 'pressure-generated', 'explosives-allowed'] as const;
   const [dashboard, pressureAllowed, pressureGenerated, rushSuccess, explosivesAllowed, ...trendLines] = await Promise.all([
     mockHogWatchRepository.getSeasonDashboard(),
-    mockHogWatchRepository.getMetricTrend('pressure-allowed'),
-    mockHogWatchRepository.getMetricTrend('pressure-generated'),
-    mockHogWatchRepository.getMetricTrend('rush-success'),
-    mockHogWatchRepository.getMetricTrend('explosives-allowed'),
-    ...trendIds.map((metricId) => mockHogWatchRepository.getMetricTrend(metricId)),
+    mockHogWatchRepository.getMetricTrend({ metricId: 'pressure-allowed' }),
+    mockHogWatchRepository.getMetricTrend({ metricId: 'pressure-generated' }),
+    mockHogWatchRepository.getMetricTrend({ metricId: 'rush-success' }),
+    mockHogWatchRepository.getMetricTrend({ metricId: 'explosives-allowed' }),
+    ...trendIds.map((metricId) => mockHogWatchRepository.getMetricTrend({ metricId })),
   ]);
   const trendCards = [pressureAllowed, pressureGenerated, rushSuccess, explosivesAllowed].filter((trend): trend is NonNullable<typeof trend> => Boolean(trend));
 

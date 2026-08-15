@@ -2,13 +2,22 @@ export type Trend = 'up' | 'down' | 'flat';
 
 export const METRIC_IDS = [
   'success-rate',
+  'defensive-success-rate',
   'pressure-allowed',
   'pressure-generated',
+  'four-man-pressure',
   'explosives',
   'explosives-allowed',
+  'explosive-play-differential',
   'rush-success',
+  'yards-before-contact',
   'red-zone-touchdown-rate',
+  'turnover-worthy-play-rate',
   'missed-tackles',
+  'penalty-rate',
+  'pre-snap-penalty-rate',
+  'special-teams-score',
+  'second-half-success-rate',
   'hog-index',
 ] as const;
 
@@ -18,19 +27,32 @@ export type MetricMetadata = {
   label: string;
   suffix?: string;
   goodDirection: 'up' | 'down';
+  category: 'offense' | 'defense' | 'coaching' | 'development' | 'composite';
+  valueKind: 'percentage' | 'count' | 'yards' | 'score';
 };
 
 export const METRIC_METADATA: Record<MetricId, MetricMetadata> = {
-  'success-rate': { label: 'Offensive success rate', suffix: '%', goodDirection: 'up' },
-  'pressure-allowed': { label: 'Pressure allowed', suffix: '%', goodDirection: 'down' },
-  'pressure-generated': { label: 'Pressure generated', suffix: '%', goodDirection: 'up' },
-  explosives: { label: 'Explosive plays', goodDirection: 'up' },
-  'explosives-allowed': { label: 'Explosives allowed', goodDirection: 'down' },
-  'rush-success': { label: 'Rush success', suffix: '%', goodDirection: 'up' },
-  'red-zone-touchdown-rate': { label: 'Red-zone TD rate', suffix: '%', goodDirection: 'up' },
-  'missed-tackles': { label: 'Missed tackles', goodDirection: 'down' },
-  'hog-index': { label: 'HOG Index', goodDirection: 'up' },
+  'success-rate': { label: 'Offensive success rate', suffix: '%', goodDirection: 'up', category: 'offense', valueKind: 'percentage' },
+  'defensive-success-rate': { label: 'Defensive success rate allowed', suffix: '%', goodDirection: 'down', category: 'defense', valueKind: 'percentage' },
+  'pressure-allowed': { label: 'Pressure allowed', suffix: '%', goodDirection: 'down', category: 'offense', valueKind: 'percentage' },
+  'pressure-generated': { label: 'Pressure generated', suffix: '%', goodDirection: 'up', category: 'defense', valueKind: 'percentage' },
+  'four-man-pressure': { label: 'Four-man pressure', suffix: '%', goodDirection: 'up', category: 'defense', valueKind: 'percentage' },
+  explosives: { label: 'Explosive plays', goodDirection: 'up', category: 'offense', valueKind: 'count' },
+  'explosives-allowed': { label: 'Explosives allowed', goodDirection: 'down', category: 'defense', valueKind: 'count' },
+  'explosive-play-differential': { label: 'Explosive-play differential', goodDirection: 'up', category: 'composite', valueKind: 'count' },
+  'rush-success': { label: 'Rush success', suffix: '%', goodDirection: 'up', category: 'offense', valueKind: 'percentage' },
+  'yards-before-contact': { label: 'Yards before contact', suffix: ' yds', goodDirection: 'up', category: 'offense', valueKind: 'yards' },
+  'red-zone-touchdown-rate': { label: 'Red-zone TD rate', suffix: '%', goodDirection: 'up', category: 'offense', valueKind: 'percentage' },
+  'turnover-worthy-play-rate': { label: 'Turnover-worthy play rate', suffix: '%', goodDirection: 'down', category: 'offense', valueKind: 'percentage' },
+  'missed-tackles': { label: 'Missed tackles', goodDirection: 'down', category: 'defense', valueKind: 'count' },
+  'penalty-rate': { label: 'Penalty rate', suffix: '%', goodDirection: 'down', category: 'coaching', valueKind: 'percentage' },
+  'pre-snap-penalty-rate': { label: 'Pre-snap penalty rate', suffix: '%', goodDirection: 'down', category: 'coaching', valueKind: 'percentage' },
+  'special-teams-score': { label: 'Special teams score', goodDirection: 'up', category: 'coaching', valueKind: 'score' },
+  'second-half-success-rate': { label: 'Second-half success rate', suffix: '%', goodDirection: 'up', category: 'coaching', valueKind: 'percentage' },
+  'hog-index': { label: 'HOG Index', goodDirection: 'up', category: 'composite', valueKind: 'score' },
 };
+
+export const isMetricId = (value: string): value is MetricId => METRIC_IDS.includes(value as MetricId);
 
 export type Metric = {
   id: MetricId;
@@ -81,6 +103,7 @@ export type Game = {
   date: string;
   hogIndex?: number;
   metrics: Partial<Record<MetricId, number>>;
+  opponentMetricBaselines?: Partial<Record<MetricId, OpponentMetricBaseline>>;
 };
 
 export type Coach = {
@@ -129,6 +152,13 @@ export type SeasonDashboard = {
 };
 
 export type MetricTrend = TrendSeries & { provenance: AnalyticsProvenance };
+export type MetricTrendQuery = {
+  metricId: MetricId;
+  /** A trailing-average window; omit it to return the per-game series. */
+  rollingWindow?: number;
+  /** Normalizes each game to the opponent's same-perspective league baseline. */
+  adjustment?: 'raw' | 'opponent-adjusted';
+};
 export type MetricComparison = {
   metricId: MetricId; label: string; gameA: number; gameB: number; delta: number; goodDirection: 'up' | 'down';
 };
@@ -143,3 +173,50 @@ export const calculateHogIndex = (x: Omit<HogIndex, 'total'>): HogIndex => ({
       x.development * HOG_INDEX_WEIGHTS.development,
   ),
 });
+
+/**
+ * A provider supplies these baselines in the same perspective as the raw
+ * metric. For example, a defense's success-rate baseline is the success rate
+ * it normally allows; a pass rush baseline is the pressure it normally creates.
+ */
+export type OpponentMetricBaseline = {
+  opponentAverage: number;
+  leagueAverage: number;
+  sampleSize: number;
+};
+
+export type OpponentAdjustedMetric = {
+  rawValue: number;
+  adjustedValue: number;
+  adjustment: number;
+  baseline: OpponentMetricBaseline;
+};
+
+/**
+ * Neutralizes opponent difficulty with a transparent first-pass formula:
+ * raw value - (opponent average - league average). A stronger-than-average
+ * opponent therefore gives appropriate credit without changing metric units.
+ */
+export const calculateOpponentAdjustedMetric = (
+  rawValue: number,
+  baseline: OpponentMetricBaseline,
+): OpponentAdjustedMetric => {
+  const adjustment = baseline.leagueAverage - baseline.opponentAverage;
+  return {
+    rawValue,
+    adjustment,
+    adjustedValue: Math.round((rawValue + adjustment) * 1000) / 1000,
+    baseline,
+  };
+};
+
+/** Returns a trailing average at every observed game, using shorter windows at season start. */
+export const calculateRollingAverage = (values: readonly number[], windowSize: number): number[] => {
+  if (!Number.isInteger(windowSize) || windowSize < 1) {
+    throw new RangeError('rolling window size must be a positive integer');
+  }
+  return values.map((_, index) => {
+    const window = values.slice(Math.max(0, index - windowSize + 1), index + 1);
+    return Math.round((window.reduce((total, value) => total + value, 0) / window.length) * 1000) / 1000;
+  });
+};

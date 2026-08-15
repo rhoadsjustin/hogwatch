@@ -1,3 +1,4 @@
+import { isMetricId } from '@hogwatch/core';
 import type { HogWatchRepository } from '@hogwatch/data';
 
 /**
@@ -11,7 +12,9 @@ export function createHogWatchToolData(repository: HogWatchRepository) {
     getGameAnalysis: (gameId: string) => repository.getGameAnalysis(gameId),
     getCoachReport: (coachId: string) => repository.getCoachReport(coachId),
     getPlayerReport: (playerId: string) => repository.getPlayerReport(playerId),
-    getMetricTrend: (metricId: string) => repository.getMetricTrend(metricId),
+    getMetricTrend: (metricId: string) => isMetricId(metricId)
+      ? repository.getMetricTrend({ metricId })
+      : Promise.resolve(undefined),
     compareGames: (gameAId: string, gameBId: string) => repository.compareGames(gameAId, gameBId),
   };
 }

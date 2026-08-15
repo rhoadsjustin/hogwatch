@@ -27,5 +27,8 @@ test('MCP tool data exposes reports, trends, and game comparisons', async () => 
   assert.equal(coach?.coach.name, 'Ron Roberts');
   assert.equal(player?.player.name, 'KJ Jackson');
   assert.deepEqual(trend?.values, [31, 37]);
-  assert.equal(comparison?.metricComparisons.length, 8);
+  assert.deepEqual(
+    comparison?.metricComparisons.find((metric) => metric.metricId === 'four-man-pressure'),
+    { metricId: 'four-man-pressure', label: 'Four-man pressure', gameA: 22, gameB: 28, delta: 6, goodDirection: 'up' },
+  );
 });
