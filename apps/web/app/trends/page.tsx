@@ -1,4 +1,5 @@
 import { AskCard } from '../../components/AskCard';
+import { DataProvenance } from '../../components/DataProvenance';
 import { MetricCard } from '../../components/MetricCard';
 import { BackLink, SectionHeading } from '../../components/PageChrome';
 import { TrendLine } from '../../components/TrendLine';
@@ -26,6 +27,7 @@ export default async function Trends() {
   return <div className="shell detailPage">
     <BackLink>Season dashboard</BackLink>
     <section className="detailMasthead"><div><span className="overline">{dashboard.season} · ROLLING AND OPPONENT-ADJUSTED</span><h1>Trend <em>explorer</em></h1><p>Look for movement that holds up from one opponent to the next.</p></div><div className="filterChip">{dashboard.completedGames} GAMES<br /><b>IN VIEW</b></div></section>
+    <DataProvenance provenance={dashboard.provenance} />
     <section className="trendHero"><span className="overline">SEASON READ</span><h2>The process is better. Explosives are the remaining red flag.</h2><p>Arkansas improved the protection and pressure numbers that tend to travel; the next proof point is whether those gains survive the Georgia matchup.</p></section>
     <section className="sectionBlock compact"><SectionHeading eyebrow="SIGNAL BOARD" title="Where the needle moved" /><div className="metricGrid">{trendCards.map((metric) => {
       const first = metric.values.at(0) ?? 0;
