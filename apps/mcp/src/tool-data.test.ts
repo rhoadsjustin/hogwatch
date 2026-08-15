@@ -11,6 +11,8 @@ test('MCP tool data returns the repository-derived Utah HOG Index', async () => 
 
   assert.equal(game?.game.id, 'utah');
   assert.deepEqual(dashboard.hogIndex, game?.hogIndex);
+  assert.equal(dashboard.provenance.source, 'mock');
+  assert.equal(game?.provenance.provider, dashboard.provenance.provider);
 });
 
 test('MCP tool data exposes reports, trends, and game comparisons', async () => {

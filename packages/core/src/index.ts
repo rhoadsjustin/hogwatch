@@ -49,6 +49,18 @@ export type HogIndex = {
   development: number;
 };
 
+/**
+ * States where an analytics report came from and what it currently covers.
+ * Provider implementations replace this object with their own retrieval and
+ * freshness details; presentation surfaces should preserve it verbatim.
+ */
+export type AnalyticsProvenance = {
+  source: 'mock' | 'provider';
+  provider: string;
+  coverage: string;
+  updatedAt: string;
+};
+
 /** HOG Index component weights. These must sum to one. */
 export const HOG_INDEX_WEIGHTS = {
   offense: 0.3,
@@ -101,26 +113,26 @@ export type TrendSeries = {
   goodDirection: 'up' | 'down';
 };
 
-export type GameAnalysis = { game: Game; hogIndex?: HogIndex; story: string; thesis: string };
+export type GameAnalysis = { game: Game; hogIndex?: HogIndex; story: string; thesis: string; provenance: AnalyticsProvenance };
 
 export type PlayerInsight = {
   stock: 'Rising' | 'Steady'; stockNote: string; role: string; story: string;
   trend: TrendSeries; metricIds: MetricId[]; details: Record<string, string>;
 };
 
-export type PlayerReport = { player: Player; insight: PlayerInsight };
-export type CoachReport = { coach: Coach; implication: string; trend: TrendSeries };
+export type PlayerReport = { player: Player; insight: PlayerInsight; provenance: AnalyticsProvenance };
+export type CoachReport = { coach: Coach; implication: string; trend: TrendSeries; provenance: AnalyticsProvenance };
 
 export type SeasonDashboard = {
   team: string; season: number; record: string; projectedRecord: string; completedGames: number;
-  latestGame?: Game; hogIndex?: HogIndex; hogIndexDelta?: number; story: string; signals: Metric[];
+  latestGame?: Game; hogIndex?: HogIndex; hogIndexDelta?: number; story: string; signals: Metric[]; provenance: AnalyticsProvenance;
 };
 
-export type MetricTrend = TrendSeries;
+export type MetricTrend = TrendSeries & { provenance: AnalyticsProvenance };
 export type MetricComparison = {
   metricId: MetricId; label: string; gameA: number; gameB: number; delta: number; goodDirection: 'up' | 'down';
 };
-export type GameComparison = { gameA: Game; gameB: Game; metricComparisons: MetricComparison[]; summary: string };
+export type GameComparison = { gameA: Game; gameB: Game; metricComparisons: MetricComparison[]; summary: string; provenance: AnalyticsProvenance };
 
 export const calculateHogIndex = (x: Omit<HogIndex, 'total'>): HogIndex => ({
   ...x,
