@@ -25,6 +25,7 @@ export function DataProvenance({ provenance }: { provenance: AnalyticsProvenance
         <span>{provenance.provider}</span>
         <time dateTime={provenance.updatedAt}>As of {formatUpdatedAt(provenance.updatedAt)} UTC</time>
       </div>
+      {provenance.sources?.length ? <div className={styles.sources} aria-label="Evidence sources">{provenance.sources.map((source) => <a href={source.url} key={source.url} rel="noreferrer" target="_blank">{source.title}</a>)}</div> : null}
     </aside>
   );
 }

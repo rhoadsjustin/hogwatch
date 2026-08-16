@@ -3,7 +3,7 @@ import { DataProvenance } from '../../components/DataProvenance';
 import { MetricCard } from '../../components/MetricCard';
 import { BackLink, SectionHeading } from '../../components/PageChrome';
 import { TrendLine } from '../../components/TrendLine';
-import { mockHogWatchRepository } from '@hogwatch/data';
+import { hogWatchRepository } from '@hogwatch/data';
 
 const trendDetail = {
   'pressure-allowed': 'Five points better',
@@ -15,12 +15,12 @@ const trendDetail = {
 export default async function Trends() {
   const trendIds = ['hog-index', 'success-rate', 'pressure-generated', 'explosives-allowed'] as const;
   const [dashboard, pressureAllowed, pressureGenerated, rushSuccess, explosivesAllowed, ...trendLines] = await Promise.all([
-    mockHogWatchRepository.getSeasonDashboard(),
-    mockHogWatchRepository.getMetricTrend({ metricId: 'pressure-allowed' }),
-    mockHogWatchRepository.getMetricTrend({ metricId: 'pressure-generated' }),
-    mockHogWatchRepository.getMetricTrend({ metricId: 'rush-success' }),
-    mockHogWatchRepository.getMetricTrend({ metricId: 'explosives-allowed' }),
-    ...trendIds.map((metricId) => mockHogWatchRepository.getMetricTrend({ metricId })),
+    hogWatchRepository.getSeasonDashboard(),
+    hogWatchRepository.getMetricTrend({ metricId: 'pressure-allowed' }),
+    hogWatchRepository.getMetricTrend({ metricId: 'pressure-generated' }),
+    hogWatchRepository.getMetricTrend({ metricId: 'rush-success' }),
+    hogWatchRepository.getMetricTrend({ metricId: 'explosives-allowed' }),
+    ...trendIds.map((metricId) => hogWatchRepository.getMetricTrend({ metricId })),
   ]);
   const trendCards = [pressureAllowed, pressureGenerated, rushSuccess, explosivesAllowed].filter((trend): trend is NonNullable<typeof trend> => Boolean(trend));
 

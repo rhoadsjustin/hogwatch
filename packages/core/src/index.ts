@@ -81,6 +81,7 @@ export type AnalyticsProvenance = {
   provider: string;
   coverage: string;
   updatedAt: string;
+  sources?: { title: string; url: string }[];
 };
 
 /** HOG Index component weights. These must sum to one. */

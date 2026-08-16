@@ -1,4 +1,4 @@
-import { mockHogWatchRepository, type HogWatchRepository } from '@hogwatch/data';
+import { hogWatchRepository, type HogWatchRepository } from '@hogwatch/data';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 
@@ -11,6 +11,7 @@ const provenanceSchema = z.object({
   provider: z.string(),
   coverage: z.string(),
   updatedAt: z.string().datetime(),
+  sources: z.array(z.object({ title: z.string(), url: z.string().url() })).optional(),
 });
 const reportSchema = z.object({ provenance: provenanceSchema }).passthrough();
 const errorSchema = z.object({ error: z.string(), entity: z.string().optional(), id: z.string().optional() }).passthrough();
@@ -26,7 +27,7 @@ const missing = (entity: string, id: string) => response(
   `No HogWatch ${entity} was found for “${id}”.`,
 );
 
-export function createHogWatchServer(repository: HogWatchRepository = mockHogWatchRepository) {
+export function createHogWatchServer(repository: HogWatchRepository = hogWatchRepository) {
   const server = new McpServer(
     { name: 'hogwatch', version: '0.3.0' },
     { instructions: 'Use HogWatch for evidence-backed Arkansas 2026 football analytics. Reports include provenance; state when data is mock or coverage is incomplete. All tools are read-only.' },

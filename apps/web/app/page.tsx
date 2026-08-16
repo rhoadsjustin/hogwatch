@@ -5,7 +5,7 @@ import { HogIndexCard } from '../components/HogIndexCard';
 import { MetricCard } from '../components/MetricCard';
 import { SectionHeading } from '../components/PageChrome';
 import { TrendLine } from '../components/TrendLine';
-import { mockHogWatchRepository } from '@hogwatch/data';
+import { hogWatchRepository } from '@hogwatch/data';
 
 const signalDetails = {
   'pressure-allowed': '34% in Week 1',
@@ -15,14 +15,15 @@ const signalDetails = {
 
 export default async function Home() {
   const [dashboard, coaches, games, players, successRate, pressureGenerated] = await Promise.all([
-    mockHogWatchRepository.getSeasonDashboard(),
-    mockHogWatchRepository.listCoaches(),
-    mockHogWatchRepository.listGames(),
-    mockHogWatchRepository.listPlayers(),
-    mockHogWatchRepository.getMetricTrend({ metricId: 'success-rate' }),
-    mockHogWatchRepository.getMetricTrend({ metricId: 'pressure-generated' }),
+    hogWatchRepository.getSeasonDashboard(),
+    hogWatchRepository.listCoaches(),
+    hogWatchRepository.listGames(),
+    hogWatchRepository.listPlayers(),
+    hogWatchRepository.getMetricTrend({ metricId: 'success-rate' }),
+    hogWatchRepository.getMetricTrend({ metricId: 'pressure-generated' }),
   ]);
   const latest = dashboard.latestGame;
+  const hasAdvancedAnalytics = dashboard.provenance.source === 'mock';
 
   return (
     <div className="shell dashboard">
@@ -47,29 +48,29 @@ export default async function Home() {
         </article>
       </section>
 
-      <section className="signalGrid" aria-label="Biggest signals">
+      {hasAdvancedAnalytics && <section className="signalGrid" aria-label="Biggest signals">
         {dashboard.signals.map((signal) => {
           const improving = signal.goodDirection === 'up' ? (signal.delta ?? 0) >= 0 : (signal.delta ?? 0) <= 0;
           return <MetricCard detail={signalDetails[signal.id as keyof typeof signalDetails]} key={signal.id} label={signal.id === 'pressure-generated' ? 'Four-man pressure' : signal.label} tone={improving ? 'good' : 'watch'} trend={improving ? 'up' : 'down'} value={`${signal.value}${signal.unit ?? ''}`} />;
         })}
-      </section>
+      </section>}
 
-      <section className="sectionBlock">
+      {hasAdvancedAnalytics && <section className="sectionBlock">
         <SectionHeading eyebrow="WEEK-TO-WEEK" title="What is moving" action={<Link className="quietLink" href="/trends">Explore all trends →</Link>} />
         <div className="trendPair">
           {successRate && <TrendLine label={successRate.label} suffix={successRate.suffix} values={successRate.values} />}
           {pressureGenerated && <TrendLine label="Defensive pressure" suffix={pressureGenerated.suffix} values={pressureGenerated.values} tone="cardinal" />}
         </div>
-      </section>
+      </section>}
 
-      <section className="sectionBlock">
+      {hasAdvancedAnalytics && <section className="sectionBlock">
         <SectionHeading eyebrow="STAFF SCORECARD" title="Who owns the next step" />
         <div className="coachGrid">
           {coaches.map((coach) => <Link className="coachCard" href={`/coaches/${coach.id}`} key={coach.id}>
             <span className="overline">{coach.role}</span><strong>{coach.grade}</strong><h3>{coach.name}</h3><p>{coach.note}</p><span className="cardArrow">Open scorecard →</span>
           </Link>)}
         </div>
-      </section>
+      </section>}
 
       <section className="sectionBlock">
         <SectionHeading eyebrow="SCHEDULE" title="Results and what is next" />
@@ -83,10 +84,10 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="sectionBlock playerSection">
+      {hasAdvancedAnalytics && <section className="sectionBlock playerSection">
         <SectionHeading eyebrow="PLAYER STOCK" title="Watch the role, not just the box score" />
         <div className="playerLinks">{players.map((player) => <Link href={`/players/${player.id}`} key={player.id}><span>#{player.number} · {player.position}</span><b>{player.name}</b><i>Open profile →</i></Link>)}</div>
-      </section>
+      </section>}
 
       <AskCard context={{ entity: 'season', entityId: 'arkansas-2026', metricIds: ['hog-index', 'pressure-allowed', 'four-man-pressure', 'explosives-allowed'] }} inFlow label="Ask whether Arkansas is actually improving" />
     </div>
