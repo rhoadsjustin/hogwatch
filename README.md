@@ -58,6 +58,35 @@ returns the same repository-derived dashboard data plus the portable resource
 `ui://hogwatch/season-dashboard-v1.html`; the six analytics tools remain
 useful in clients that do not render MCP Apps UI.
 
+## Live schedule and final-score research
+
+HogWatch can opt into OpenAI Responses web search for the current official
+Arkansas schedule and final scores. It intentionally does **not** invent or
+estimate advanced metrics: HOG Index, player, coach, and trend reports remain
+fixture-backed until a verified play-level data provider is connected.
+
+Copy `.env.example` to `.env.local`, set `HOGWATCH_LIVE_DATA_ENABLED=true`, and
+provide `OPENAI_API_KEY`. The key is used only by server components and the MCP
+server, never sent to a browser. Searches are cached in process for 15 minutes;
+the data-status panel exposes the returned source citations.
+
+## ChatGPT App deployment (Cloudflare Worker)
+
+`apps/mcp` includes a Worker-compatible, stateless Streamable HTTP endpoint at
+`/mcp` and a health check at `/health`. It is separate from the local stdio
+server, so local ChatGPT/MCP development remains simple.
+
+```bash
+npm run dev:worker -w @hogwatch/mcp
+npm run deploy:worker -w @hogwatch/mcp
+npx wrangler secret put OPENAI_API_KEY --config apps/mcp/wrangler.jsonc
+```
+
+Set the `OPENAI_API_KEY` Worker secret before enabling the live-data path. The
+Worker intentionally falls back to the clearly labeled fixture repository if a
+live search fails. Once deployed, configure the resulting `https://…/mcp` URL
+in ChatGPT Apps and verify it with MCP Inspector before sharing it.
+
 ## Local MCP smoke test
 
 Install dependencies, then run the stdio server:

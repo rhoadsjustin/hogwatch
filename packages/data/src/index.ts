@@ -23,6 +23,7 @@ import {
   type SeasonDashboard,
   type TrendSeries,
 } from '@hogwatch/core';
+import { OpenAIWebSearchScheduleProvider } from './openai-web-search.ts';
 
 /**
  * The provider-facing payload after its vendor-specific fields have been
@@ -230,3 +231,65 @@ export class MockHogWatchRepository implements HogWatchRepository {
 }
 
 export const mockHogWatchRepository = new MockHogWatchRepository();
+
+class LiveScheduleRepository implements HogWatchRepository {
+  constructor(private readonly fallback: HogWatchRepository, private readonly scheduleProvider: OpenAIWebSearchScheduleProvider) {}
+
+  private async schedule() { return this.scheduleProvider.getSeasonSchedule(); }
+  private async fallbackOnFailure<T>(live: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
+    try { return await live(); } catch { return fallback(); }
+  }
+
+  async getSeasonDashboard(): Promise<SeasonDashboard> {
+    return this.fallbackOnFailure<SeasonDashboard>(async () => {
+      const { games, provenance } = await this.schedule();
+      const completed = games.filter((game) => game.result);
+      const wins = completed.filter((game) => game.result === 'W').length;
+      return {
+        team: 'Arkansas', season: 2026, record: `${wins}-${completed.length - wins}`, projectedRecord: '—', completedGames: completed.length,
+        latestGame: completed.at(-1), story: completed.length
+          ? 'Live final scores are synced. Advanced grading arrives only after verified play-level data is available.'
+          : 'The official schedule is live. HOG Index grading begins after verified game data is available.',
+        signals: [], provenance,
+      };
+    }, () => this.fallback.getSeasonDashboard());
+  }
+
+  async getGameAnalysis(gameId: string): Promise<GameAnalysis | undefined> {
+    return this.fallbackOnFailure(async () => {
+      const { games, provenance } = await this.schedule();
+      const game = games.find((candidate) => candidate.id === gameId);
+      return game ? {
+        game,
+        thesis: game.result ? 'Final score confirmed; advanced grading is pending.' : 'The official schedule is confirmed.',
+        story: game.result
+          ? 'HogWatch will publish a scorecard after its advanced metrics are independently verified.'
+          : 'Pregame context will be added after the supporting data is verified.',
+        provenance,
+      } : undefined;
+    }, () => this.fallback.getGameAnalysis(gameId));
+  }
+
+  async getCoachReport(coachId: string) { return this.fallback.getCoachReport(coachId); }
+  async getPlayerReport(playerId: string) { return this.fallback.getPlayerReport(playerId); }
+  async getMetricTrend(query: MetricTrendQuery) { return this.fallback.getMetricTrend(query); }
+  async compareGames(gameAId: string, gameBId: string) { return this.fallback.compareGames(gameAId, gameBId); }
+  async listGames() { return this.fallbackOnFailure(async () => (await this.schedule()).games, () => this.fallback.listGames()); }
+  async listCoaches() { return this.fallback.listCoaches(); }
+  async listPlayers() { return this.fallback.listPlayers(); }
+}
+
+type HogWatchEnvironment = Record<string, string | undefined>;
+
+const defaultEnvironment = (): HogWatchEnvironment =>
+  typeof process === 'undefined' ? {} : process.env;
+
+export const createHogWatchRepository = (environment: HogWatchEnvironment = defaultEnvironment()): HogWatchRepository => {
+  if (environment.HOGWATCH_LIVE_DATA_ENABLED === 'true' && environment.OPENAI_API_KEY) {
+    return new LiveScheduleRepository(mockHogWatchRepository, new OpenAIWebSearchScheduleProvider(environment.OPENAI_API_KEY, { model: environment.HOGWATCH_OPENAI_MODEL }));
+  }
+  return mockHogWatchRepository;
+};
+
+/** The sole composition root used by both web and MCP runtimes. */
+export const hogWatchRepository = createHogWatchRepository();

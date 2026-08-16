@@ -4,11 +4,11 @@ import { DataProvenance } from '../../../components/DataProvenance';
 import { BackLink, SectionHeading } from '../../../components/PageChrome';
 import { Scorecard } from '../../../components/Scorecard';
 import { TrendLine } from '../../../components/TrendLine';
-import { mockHogWatchRepository } from '@hogwatch/data';
+import { hogWatchRepository } from '@hogwatch/data';
 
 export default async function CoachPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const report = await mockHogWatchRepository.getCoachReport(id);
+  const report = await hogWatchRepository.getCoachReport(id);
   if (!report) notFound();
   const { coach, trend, implication, provenance } = report;
 
