@@ -2,6 +2,10 @@ import type { AnalyticsProvenance, Game } from '@hogwatch/core';
 
 export type ResearchSource = { title: string; url: string };
 export type LiveScheduleSnapshot = { season: number; games: Game[]; provenance: AnalyticsProvenance };
+export interface LiveScheduleCache {
+  get(key: string): Promise<unknown>;
+  set(key: string, snapshot: LiveScheduleSnapshot, ttlSeconds: number): Promise<void>;
+}
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 type Annotation = { type?: string; title?: string; url?: string };
@@ -12,7 +16,9 @@ const prompt = (season: number, today: string) => `Research the ${season} Arkans
 const record = (value: unknown): Record<string, unknown> | undefined => typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
 const string = (value: unknown): string | undefined => typeof value === 'string' && value.trim() ? value.trim() : undefined;
 const score = (value: unknown): number | undefined => typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 200 ? value : undefined;
+const seasonValue = (value: unknown): number | undefined => typeof value === 'number' && Number.isInteger(value) && value >= 1900 && value <= 3000 ? value : undefined;
 const slugify = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+const cacheKey = (season: number) => `hogwatch:openai-web-search:schedule:${season}:v1`;
 
 const parseGames = (value: unknown): Game[] => {
   if (!Array.isArray(value)) throw new Error('OpenAI web-search response did not include games.');
@@ -40,18 +46,50 @@ const parseOutput = (payload: ResponsesPayload) => {
   return { json, sources: [...sourceByUrl.values()] };
 };
 
+const parseCachedSnapshot = (value: unknown): LiveScheduleSnapshot | undefined => {
+  const snapshot = record(value);
+  const provenance = record(snapshot?.provenance);
+  const season = seasonValue(snapshot?.season);
+  const source = provenance?.source;
+  const provider = string(provenance?.provider);
+  const coverage = string(provenance?.coverage);
+  const updatedAt = string(provenance?.updatedAt);
+  const rawSources = provenance?.sources;
+  if (!season || source !== 'provider' || !provider || !coverage || !updatedAt || !Array.isArray(rawSources)) return undefined;
+  const sources = rawSources.flatMap((item): ResearchSource[] => {
+    const candidate = record(item); const title = string(candidate?.title); const url = string(candidate?.url);
+    return title && url ? [{ title, url }] : [];
+  });
+  if (!sources.length || sources.length !== rawSources.length) return undefined;
+  try {
+    return { season, games: parseGames(snapshot?.games), provenance: { source, provider, coverage, updatedAt, sources } };
+  } catch {
+    return undefined;
+  }
+};
+
 export class OpenAIWebSearchScheduleProvider {
   private cached?: { expiresAt: number; snapshot: LiveScheduleSnapshot };
   private inFlight?: Promise<LiveScheduleSnapshot>;
-  constructor(private readonly apiKey: string, private readonly options: { model?: string; ttlMs?: number; fetch?: FetchLike; now?: () => Date } = {}) {}
+  constructor(private readonly apiKey: string, private readonly options: { model?: string; ttlMs?: number; fetch?: FetchLike; now?: () => Date; cache?: LiveScheduleCache } = {}) {}
 
   async getSeasonSchedule(season = 2026): Promise<LiveScheduleSnapshot> {
     const now = this.options.now ?? (() => new Date());
     if (this.cached && this.cached.expiresAt > now().getTime()) return this.cached.snapshot;
-    if (!this.inFlight) this.inFlight = this.request(season, now).then((snapshot) => {
+    if (!this.inFlight) this.inFlight = this.fromCacheOrRequest(season, now).then((snapshot) => {
       this.cached = { snapshot, expiresAt: now().getTime() + (this.options.ttlMs ?? 15 * 60_000) }; return snapshot;
     }).finally(() => { this.inFlight = undefined; });
     return this.inFlight;
+  }
+
+  private async fromCacheOrRequest(season: number, now: () => Date): Promise<LiveScheduleSnapshot> {
+    const key = cacheKey(season);
+    const cached = this.options.cache ? parseCachedSnapshot(await this.options.cache.get(key)) : undefined;
+    if (cached) return cached;
+    const snapshot = await this.request(season, now);
+    const ttlSeconds = Math.max(60, Math.ceil((this.options.ttlMs ?? 15 * 60_000) / 1_000));
+    await this.options.cache?.set(key, snapshot, ttlSeconds).catch(() => undefined);
+    return snapshot;
   }
 
   private async request(season: number, now: () => Date): Promise<LiveScheduleSnapshot> {

@@ -39,3 +39,40 @@ test('OpenAI web-search schedule provider rejects final games without both score
   const provider = new OpenAIWebSearchScheduleProvider('test-key', { fetch: async () => new Response(JSON.stringify(invalid), { status: 200 }) });
   await assert.rejects(provider.getSeasonSchedule(), /final game must include both final scores/i);
 });
+
+test('OpenAI web-search schedule provider uses a validated shared cache across instances', async () => {
+  const entries = new Map<string, unknown>();
+  let calls = 0;
+  const cache = {
+    get: async (key: string) => entries.get(key),
+    set: async (key: string, snapshot: unknown, ttlSeconds: number) => {
+      assert.equal(ttlSeconds, 900);
+      entries.set(key, snapshot);
+    },
+  };
+  const first = new OpenAIWebSearchScheduleProvider('test-key', {
+    cache,
+    now: () => new Date('2026-08-15T12:00:00.000Z'),
+    fetch: async () => { calls += 1; return new Response(JSON.stringify(payload), { status: 200 }); },
+  });
+  await first.getSeasonSchedule();
+
+  const second = new OpenAIWebSearchScheduleProvider('test-key', {
+    cache,
+    fetch: async () => { throw new Error('a shared cache hit must not call OpenAI'); },
+  });
+  const cached = await second.getSeasonSchedule();
+  assert.equal(calls, 1);
+  assert.equal(cached.games[0]?.opponent, 'North Alabama');
+});
+
+test('OpenAI web-search schedule provider ignores malformed shared cache values', async () => {
+  let calls = 0;
+  const provider = new OpenAIWebSearchScheduleProvider('test-key', {
+    cache: { get: async () => { return { season: 2026, games: [] }; }, set: async () => undefined },
+    fetch: async () => { calls += 1; return new Response(JSON.stringify(payload), { status: 200 }); },
+  });
+  const snapshot = await provider.getSeasonSchedule();
+  assert.equal(calls, 1);
+  assert.equal(snapshot.provenance.source, 'provider');
+});

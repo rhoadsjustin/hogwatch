@@ -87,6 +87,21 @@ Worker intentionally falls back to the clearly labeled fixture repository if a
 live search fails. Once deployed, configure the resulting `https://…/mcp` URL
 in ChatGPT Apps and verify it with MCP Inspector before sharing it.
 
+Before a public ChatGPT connection, provision the shared schedule cache in the
+Cloudflare account that owns the Worker, then add the generated namespace ID to
+`apps/mcp/wrangler.jsonc` under the `HOGWATCH_SCHEDULE_CACHE` binding:
+
+```bash
+npx wrangler kv namespace create hogwatch-schedule-cache --binding HOGWATCH_SCHEDULE_CACHE --update-config --config apps/mcp/wrangler.jsonc
+```
+
+The Worker keeps validated cited schedule data in KV for 15 minutes and also
+uses a 30-tool-call-per-minute-per-client-IP edge limiter. It limits only
+`tools/call`, so ChatGPT initialization, tool discovery, health checks, and UI
+resource reads remain available. The edge limiter is a coarse abuse guard (not
+an identity quota); add authenticated per-user limits before private or paid
+data is introduced.
+
 ## Local MCP smoke test
 
 Install dependencies, then run the stdio server:
