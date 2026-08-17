@@ -23,7 +23,9 @@ import {
   type SeasonDashboard,
   type TrendSeries,
 } from '@hogwatch/core';
-import { OpenAIWebSearchScheduleProvider } from './openai-web-search.ts';
+import { OpenAIWebSearchScheduleProvider, type LiveScheduleCache } from './openai-web-search.ts';
+
+export type { LiveScheduleCache } from './openai-web-search.ts';
 
 /**
  * The provider-facing payload after its vendor-specific fields have been
@@ -284,9 +286,15 @@ type HogWatchEnvironment = Record<string, string | undefined>;
 const defaultEnvironment = (): HogWatchEnvironment =>
   typeof process === 'undefined' ? {} : process.env;
 
-export const createHogWatchRepository = (environment: HogWatchEnvironment = defaultEnvironment()): HogWatchRepository => {
+export const createHogWatchRepository = (
+  environment: HogWatchEnvironment = defaultEnvironment(),
+  options: { liveScheduleCache?: LiveScheduleCache } = {},
+): HogWatchRepository => {
   if (environment.HOGWATCH_LIVE_DATA_ENABLED === 'true' && environment.OPENAI_API_KEY) {
-    return new LiveScheduleRepository(mockHogWatchRepository, new OpenAIWebSearchScheduleProvider(environment.OPENAI_API_KEY, { model: environment.HOGWATCH_OPENAI_MODEL }));
+    return new LiveScheduleRepository(mockHogWatchRepository, new OpenAIWebSearchScheduleProvider(environment.OPENAI_API_KEY, {
+      model: environment.HOGWATCH_OPENAI_MODEL,
+      cache: options.liveScheduleCache,
+    }));
   }
   return mockHogWatchRepository;
 };
