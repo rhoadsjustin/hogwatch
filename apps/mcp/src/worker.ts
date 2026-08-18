@@ -7,6 +7,7 @@ export type WorkerEnvironment = {
   OPENAI_API_KEY?: string;
   HOGWATCH_LIVE_DATA_ENABLED?: string;
   HOGWATCH_OPENAI_MODEL?: string;
+  HOGWATCH_OPENAI_WEB_SEARCH_FALLBACK?: string;
   HOGWATCH_SCHEDULE_CACHE?: KVNamespaceLike;
   MCP_TOOL_RATE_LIMITER?: RateLimiter;
 };
@@ -36,13 +37,14 @@ const scheduleCacheFor = (cache: KVNamespaceLike | undefined): LiveScheduleCache
 };
 
 const repositoryFor = (environment: WorkerEnvironment) => {
-  const key = `${environment.HOGWATCH_LIVE_DATA_ENABLED ?? ''}:${environment.HOGWATCH_OPENAI_MODEL ?? ''}:${Boolean(environment.OPENAI_API_KEY)}`;
+  const key = `${environment.HOGWATCH_LIVE_DATA_ENABLED ?? ''}:${environment.HOGWATCH_OPENAI_MODEL ?? ''}:${environment.HOGWATCH_OPENAI_WEB_SEARCH_FALLBACK ?? ''}:${Boolean(environment.OPENAI_API_KEY)}`;
   if (repositoryKey !== key) {
     repositoryKey = key;
     repository = createHogWatchRepository({
       OPENAI_API_KEY: environment.OPENAI_API_KEY,
       HOGWATCH_LIVE_DATA_ENABLED: environment.HOGWATCH_LIVE_DATA_ENABLED,
       HOGWATCH_OPENAI_MODEL: environment.HOGWATCH_OPENAI_MODEL,
+      HOGWATCH_OPENAI_WEB_SEARCH_FALLBACK: environment.HOGWATCH_OPENAI_WEB_SEARCH_FALLBACK,
     }, { liveScheduleCache: scheduleCacheFor(environment.HOGWATCH_SCHEDULE_CACHE) });
   }
   return repository as HogWatchRepository;

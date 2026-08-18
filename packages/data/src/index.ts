@@ -24,6 +24,7 @@ import {
   type TrendSeries,
 } from '@hogwatch/core';
 import { OpenAIWebSearchScheduleProvider, type LiveScheduleCache } from './openai-web-search.ts';
+import { ArkansasOfficialScheduleProvider } from './arkansas-official-schedule.ts';
 
 export type { LiveScheduleCache } from './openai-web-search.ts';
 
@@ -234,8 +235,23 @@ export class MockHogWatchRepository implements HogWatchRepository {
 
 export const mockHogWatchRepository = new MockHogWatchRepository();
 
+type ScheduleProvider = { getSeasonSchedule(season?: number): Promise<import('./openai-web-search.ts').LiveScheduleSnapshot> };
+
+class OfficialThenAdminFallbackScheduleProvider implements ScheduleProvider {
+  constructor(private readonly official: ScheduleProvider, private readonly adminFallback?: ScheduleProvider) {}
+
+  async getSeasonSchedule(season?: number) {
+    try {
+      return await this.official.getSeasonSchedule(season);
+    } catch (error) {
+      if (this.adminFallback) return this.adminFallback.getSeasonSchedule(season);
+      throw error;
+    }
+  }
+}
+
 class LiveScheduleRepository implements HogWatchRepository {
-  constructor(private readonly fallback: HogWatchRepository, private readonly scheduleProvider: OpenAIWebSearchScheduleProvider) {}
+  constructor(private readonly fallback: HogWatchRepository, private readonly scheduleProvider: ScheduleProvider) {}
 
   private async schedule() { return this.scheduleProvider.getSeasonSchedule(); }
   private async fallbackOnFailure<T>(live: () => Promise<T>, fallback: () => Promise<T>): Promise<T> {
@@ -290,11 +306,12 @@ export const createHogWatchRepository = (
   environment: HogWatchEnvironment = defaultEnvironment(),
   options: { liveScheduleCache?: LiveScheduleCache } = {},
 ): HogWatchRepository => {
-  if (environment.HOGWATCH_LIVE_DATA_ENABLED === 'true' && environment.OPENAI_API_KEY) {
-    return new LiveScheduleRepository(mockHogWatchRepository, new OpenAIWebSearchScheduleProvider(environment.OPENAI_API_KEY, {
-      model: environment.HOGWATCH_OPENAI_MODEL,
-      cache: options.liveScheduleCache,
-    }));
+  if (environment.HOGWATCH_LIVE_DATA_ENABLED === 'true') {
+    const official = new ArkansasOfficialScheduleProvider({ cache: options.liveScheduleCache });
+    const adminFallback = environment.HOGWATCH_OPENAI_WEB_SEARCH_FALLBACK === 'true' && environment.OPENAI_API_KEY
+      ? new OpenAIWebSearchScheduleProvider(environment.OPENAI_API_KEY, { model: environment.HOGWATCH_OPENAI_MODEL, cache: options.liveScheduleCache })
+      : undefined;
+    return new LiveScheduleRepository(mockHogWatchRepository, new OfficialThenAdminFallbackScheduleProvider(official, adminFallback));
   }
   return mockHogWatchRepository;
 };

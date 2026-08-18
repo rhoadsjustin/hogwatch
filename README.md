@@ -60,15 +60,18 @@ useful in clients that do not render MCP Apps UI.
 
 ## Live schedule and final-score research
 
-HogWatch can opt into OpenAI Responses web search for the current official
-Arkansas schedule and final scores. It intentionally does **not** invent or
-estimate advanced metrics: HOG Index, player, coach, and trend reports remain
+HogWatch reads the current official Arkansas Razorbacks football schedule and
+final scores directly from the athletics site, then stores the validated result
+in cache for 15 minutes. It intentionally does **not** invent or estimate
+advanced metrics: HOG Index, player, coach, and trend reports remain
 fixture-backed until a verified play-level data provider is connected.
 
-Copy `.env.example` to `.env.local`, set `HOGWATCH_LIVE_DATA_ENABLED=true`, and
-provide `OPENAI_API_KEY`. The key is used only by server components and the MCP
-server, never sent to a browser. Searches are cached in process for 15 minutes;
-the data-status panel exposes the returned source citations.
+Copy `.env.example` to `.env.local` and set `HOGWATCH_LIVE_DATA_ENABLED=true`.
+No OpenAI key is required for the normal live schedule path. An administrator
+may set `HOGWATCH_OPENAI_WEB_SEARCH_FALLBACK=true` and provide
+`OPENAI_API_KEY` only to recover from an official-source outage; this is never
+exposed as a public MCP tool. The data-status panel exposes the official source
+citation.
 
 ## ChatGPT App deployment (Cloudflare Worker)
 
@@ -79,13 +82,16 @@ server, so local ChatGPT/MCP development remains simple.
 ```bash
 npm run dev:worker -w @hogwatch/mcp
 npm run deploy:worker -w @hogwatch/mcp
+# Only when enabling the emergency OpenAI fallback:
 npx wrangler secret put OPENAI_API_KEY --config apps/mcp/wrangler.jsonc
 ```
 
-Set the `OPENAI_API_KEY` Worker secret before enabling the live-data path. The
-Worker intentionally falls back to the clearly labeled fixture repository if a
-live search fails. Once deployed, configure the resulting `https://…/mcp` URL
-in ChatGPT Apps and verify it with MCP Inspector before sharing it.
+The normal Worker path does not need an OpenAI secret. If an administrator
+enables the emergency web-search fallback, set the `OPENAI_API_KEY` Worker
+secret first. The Worker intentionally falls back to the clearly labeled
+fixture repository if its live source fails. Once deployed, configure the
+resulting `https://…/mcp` URL in ChatGPT Apps and verify it with MCP Inspector
+before sharing it.
 
 Before a public ChatGPT connection, provision the shared schedule cache in the
 Cloudflare account that owns the Worker, then add the generated namespace ID to
