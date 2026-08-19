@@ -9,6 +9,10 @@
     "name": "MCP_TOOL_RATE_LIMITER",
     "namespace_id": "20260816",
     "simple": { "limit": 30, "period": 60 }
+  }, {
+    "name": "HOGWATCH_ASK_RATE_LIMITER",
+    "namespace_id": "20260817",
+    "simple": { "limit": 10, "period": 60 }
   }],
   "vars": {
     "HOGWATCH_LIVE_DATA_ENABLED": "true",

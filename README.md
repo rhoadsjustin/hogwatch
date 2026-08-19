@@ -27,10 +27,10 @@ Run the native iOS app with Expo Go or an iOS Simulator:
 npm run ios
 ```
 
-The mobile app currently composes `mockHogWatchRepository` in
-`apps/mobile/src/data/repository.ts`. This preserves the screen-to-repository
-boundary while a mobile-safe authenticated data API is designed; it never
-bundles an OpenAI key or calls the live-search provider directly.
+The native app reads the same repository reports through the Worker when
+`EXPO_PUBLIC_HOGWATCH_API_URL` is set in `apps/mobile/.env.local`; otherwise it
+uses clearly labeled fixtures for Expo Go development. It never bundles an
+OpenAI key or calls a sports provider directly.
 
 ## Verification
 
@@ -88,8 +88,9 @@ citation.
 ## ChatGPT App deployment (Cloudflare Worker)
 
 `apps/mcp` includes a Worker-compatible, stateless Streamable HTTP endpoint at
-`/mcp` and a health check at `/health`. It is separate from the local stdio
-server, so local ChatGPT/MCP development remains simple.
+`/mcp`, read-only native-app report endpoints under `/api`, and a health check
+at `/health`. It is separate from the local stdio server, so local ChatGPT/MCP
+development remains simple.
 
 ```bash
 npm run dev:worker -w @hogwatch/mcp
@@ -98,12 +99,26 @@ npm run deploy:worker -w @hogwatch/mcp
 npx wrangler secret put OPENAI_API_KEY --config apps/mcp/wrangler.jsonc
 ```
 
-The normal Worker path does not need an OpenAI secret. If an administrator
-enables the emergency web-search fallback, set the `OPENAI_API_KEY` Worker
-secret first. The Worker intentionally falls back to the clearly labeled
-fixture repository if its live source fails. Once deployed, configure the
-resulting `https://…/mcp` URL in ChatGPT Apps and verify it with MCP Inspector
-before sharing it.
+The normal Worker schedule path does not need an OpenAI secret. Set the
+`OPENAI_API_KEY` Worker secret to enable the grounded `POST /api/ask` endpoint
+(and, only if deliberately enabled, the emergency web-search fallback). The
+mobile client submits structured report IDs rather than free-form prompts; the
+Worker resolves the report, gives that evidence to the Responses API, and
+returns a concise answer with its provenance. The key remains only in the
+Worker. The endpoint is protected by a separate 10-requests-per-minute per-IP
+edge limiter; add authenticated per-user quotas before offering it as a paid
+or private feature.
+
+After deployment, set the Worker origin—not `/mcp`—in
+`apps/mobile/.env.local`:
+
+```bash
+EXPO_PUBLIC_HOGWATCH_API_URL=https://hogwatch-mcp.<your-subdomain>.workers.dev
+```
+
+Restart Expo after changing the value, then configure the resulting
+`https://…/mcp` URL in ChatGPT Apps and verify it with MCP Inspector before
+sharing it.
 
 Before a public ChatGPT connection, provision the shared schedule cache in the
 Cloudflare account that owns the Worker, then add the generated namespace ID to

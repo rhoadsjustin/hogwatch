@@ -1,8 +1,13 @@
 import { mockHogWatchRepository, type HogWatchRepository } from '@hogwatch/data';
+import { createHogWatchWorkerClient, type HogWatchChatClient } from './worker-client';
 
 /**
- * The native app's composition root. It intentionally uses fixture-backed
- * analytics until a mobile-safe, authenticated API is introduced. Screens only
- * know this repository contract, so that change does not alter their UI code.
+ * The app uses the Worker when a public API URL is configured. It otherwise
+ * remains useful in Expo Go with clearly labeled fixture data. The OpenAI key
+ * never enters the bundle; only the Worker holds that server-side secret.
  */
-export const hogWatchMobileRepository: HogWatchRepository = mockHogWatchRepository;
+const apiUrl = process.env.EXPO_PUBLIC_HOGWATCH_API_URL;
+const workerClient = apiUrl ? createHogWatchWorkerClient(apiUrl) : undefined;
+
+export const hogWatchMobileRepository: HogWatchRepository = workerClient?.repository ?? mockHogWatchRepository;
+export const hogWatchMobileChat: HogWatchChatClient | undefined = workerClient?.chat;

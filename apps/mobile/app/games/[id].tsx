@@ -2,7 +2,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { ScrollView, Text, View } from 'react-native';
 
 import { AskChatGPT, Card, DataProvenance, EmptyState, Eyebrow, LoadingState, Pill, SectionHeader } from '@/components/ui';
-import { hogWatchMobileRepository } from '@/data/repository';
+import { hogWatchMobileChat, hogWatchMobileRepository } from '@/data/repository';
 import { useHogWatchResource } from '@/data/use-hogwatch';
 import { METRIC_METADATA, METRIC_IDS } from '@hogwatch/core';
 import { colors, radius } from '@/theme';
@@ -48,7 +48,7 @@ export default function GameReportScreen() {
         <Card>{metrics.map(({ metricId, value }, index) => { const metadata = METRIC_METADATA[metricId]; return <View key={metricId} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: index === metrics.length - 1 ? 0 : 12, borderBottomWidth: index === metrics.length - 1 ? 0 : 1, borderBottomColor: colors.line }}><View style={{ flex: 1, gap: 3 }}><Text selectable style={{ color: colors.ink, fontSize: 15, fontWeight: '800' }}>{metadata.label}</Text><Pill tone={metadata.goodDirection === 'up' ? 'good' : 'watch'}>{metadata.goodDirection === 'up' ? 'HIGHER IS BETTER' : 'LOWER IS BETTER'}</Pill></View><Text selectable style={{ color: colors.ink, fontSize: 23, fontWeight: '900', fontVariant: ['tabular-nums'] }}>{value}{metadata.suffix}</Text></View>; })}</Card>
       </View>}
 
-      <AskChatGPT entity="game" id={game.id} metricIds={metrics.map(({ metricId }) => metricId)} />
+      <AskChatGPT entity="game" id={game.id} metricIds={metrics.map(({ metricId }) => metricId)} chatClient={hogWatchMobileChat} />
     </ScrollView>
   );
 }

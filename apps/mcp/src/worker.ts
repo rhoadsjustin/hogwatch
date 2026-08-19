@@ -1,7 +1,9 @@
+import { isMetricId } from '@hogwatch/core';
 import { createHogWatchRepository, type HogWatchRepository, type LiveScheduleCache } from '@hogwatch/data';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 
 import { createHogWatchServer } from './server.js';
+import { createHogWatchChat, HogWatchChatNotFoundError, HogWatchChatUnavailableError, isChatEntity, type HogWatchChatRequest } from './hogwatch-chat.js';
 
 export type WorkerEnvironment = {
   OPENAI_API_KEY?: string;
@@ -10,6 +12,7 @@ export type WorkerEnvironment = {
   HOGWATCH_OPENAI_WEB_SEARCH_FALLBACK?: string;
   HOGWATCH_SCHEDULE_CACHE?: KVNamespaceLike;
   MCP_TOOL_RATE_LIMITER?: RateLimiter;
+  HOGWATCH_ASK_RATE_LIMITER?: RateLimiter;
 };
 
 type KVNamespaceLike = {
@@ -80,10 +83,92 @@ const enforceToolRateLimit = async (request: Request, body: unknown, limiter: Ra
   }
 };
 
+const apiRateLimitResponse = () => json({ error: 'rate_limited', message: 'Too many live chat requests. Try again in one minute.' }, 429);
+
+const enforceAskRateLimit = async (request: Request, limiter: RateLimiter | undefined) => {
+  if (!limiter) return undefined;
+  const clientIp = request.headers.get('cf-connecting-ip') ?? 'anonymous';
+  try {
+    const result = await limiter.limit({ key: `hogwatch-ask:${clientIp}` });
+    return result.success ? undefined : apiRateLimitResponse();
+  } catch {
+    // The answer endpoint remains available if the optional edge guard has a transient fault.
+    return undefined;
+  }
+};
+
+const apiNotFound = () => json({ error: 'not_found', message: 'The requested HogWatch resource was not found.' }, 404);
+
+const api = async (request: Request, environment: WorkerEnvironment): Promise<Response> => {
+  const url = new URL(request.url);
+  const { pathname } = url;
+  const repository = repositoryFor(environment);
+  if (request.method === 'GET' && pathname === '/api/season-dashboard') return json({ data: await repository.getSeasonDashboard() });
+  if (request.method === 'GET' && pathname === '/api/games') return json({ data: await repository.listGames() });
+  if (request.method === 'GET' && pathname === '/api/coaches') return json({ data: await repository.listCoaches() });
+  if (request.method === 'GET' && pathname === '/api/players') return json({ data: await repository.listPlayers() });
+  if (request.method === 'GET' && pathname === '/api/games/compare') {
+    const gameAId = url.searchParams.get('gameAId');
+    const gameBId = url.searchParams.get('gameBId');
+    if (!gameAId || !gameBId) return json({ error: 'invalid_request', message: 'Provide both gameAId and gameBId.' }, 400);
+    const data = await repository.compareGames(gameAId, gameBId);
+    return data ? json({ data }) : apiNotFound();
+  }
+
+  const gameId = /^\/api\/games\/([^/]+)$/.exec(pathname)?.[1];
+  if (request.method === 'GET' && gameId) {
+    const data = await repository.getGameAnalysis(decodeURIComponent(gameId));
+    return data ? json({ data }) : apiNotFound();
+  }
+  const coachId = /^\/api\/coaches\/([^/]+)$/.exec(pathname)?.[1];
+  if (request.method === 'GET' && coachId) {
+    const data = await repository.getCoachReport(decodeURIComponent(coachId));
+    return data ? json({ data }) : apiNotFound();
+  }
+  const playerId = /^\/api\/players\/([^/]+)$/.exec(pathname)?.[1];
+  if (request.method === 'GET' && playerId) {
+    const data = await repository.getPlayerReport(decodeURIComponent(playerId));
+    return data ? json({ data }) : apiNotFound();
+  }
+  const metricId = /^\/api\/trends\/([^/]+)$/.exec(pathname)?.[1];
+  if (request.method === 'GET' && metricId) {
+    const decodedMetricId = decodeURIComponent(metricId);
+    if (!isMetricId(decodedMetricId)) return apiNotFound();
+    const adjustment = url.searchParams.get('adjustment') === 'opponent-adjusted' ? 'opponent-adjusted' : 'raw';
+    const data = await repository.getMetricTrend({ metricId: decodedMetricId, adjustment });
+    return data ? json({ data }) : apiNotFound();
+  }
+  if (pathname !== '/api/ask') return apiNotFound();
+  if (request.method !== 'POST') return json({ error: 'method_not_allowed', message: 'Use POST for live chat.' }, 405);
+  const limited = await enforceAskRateLimit(request, environment.HOGWATCH_ASK_RATE_LIMITER);
+  if (limited) return limited;
+  const body = await request.json().catch(() => undefined);
+  const input = record(body);
+  const entity = typeof input?.entity === 'string' ? input.entity : undefined;
+  const id = typeof input?.id === 'string' ? input.id : undefined;
+  const metricIds = Array.isArray(input?.metricIds) && input.metricIds.every((value) => typeof value === 'string') ? input.metricIds as string[] : undefined;
+  if (!entity || !isChatEntity(entity) || !id || !id.trim()) {
+    return json({ error: 'invalid_request', message: 'Provide a supported entity and non-empty ID.' }, 400);
+  }
+  try {
+    const chat = createHogWatchChat(repository, {
+      apiKey: environment.OPENAI_API_KEY,
+      model: environment.HOGWATCH_OPENAI_MODEL,
+    });
+    const data = await chat.ask({ entity, id: id.trim(), metricIds } satisfies HogWatchChatRequest);
+    return json({ data });
+  } catch (error) {
+    if (error instanceof HogWatchChatNotFoundError) return apiNotFound();
+    if (error instanceof HogWatchChatUnavailableError) return json({ error: 'chat_unavailable', message: error.message }, 503);
+    return json({ error: 'chat_unavailable', message: 'Live chat is temporarily unavailable.' }, 503);
+  }
+};
+
 export default {
   async fetch(request: Request, environment: WorkerEnvironment): Promise<Response> {
     const { pathname } = new URL(request.url);
     if (pathname === '/health') return json({ status: 'ok', service: 'hogwatch-mcp' });
+    if (pathname.startsWith('/api/')) return api(request, environment);
     if (pathname !== '/mcp') return json({ error: 'not_found' }, 404);
 
     const body = request.method === 'POST'

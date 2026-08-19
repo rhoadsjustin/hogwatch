@@ -55,3 +55,45 @@ test('Worker leaves the ChatGPT initialization handshake outside the tool-call l
   assert.equal(response.status, 200);
   assert.equal(limitCalls, 0);
 });
+
+test('Worker exposes the same read-only analytics reports for the native app', async () => {
+  const dashboard = await worker.fetch(new Request('https://hogwatch.test/api/season-dashboard'), {});
+  assert.equal(dashboard.status, 200);
+  const dashboardBody = await dashboard.json() as { data?: { provenance?: { source?: string } } };
+  assert.equal(dashboardBody.data?.provenance?.source, 'mock');
+
+  const game = await worker.fetch(new Request('https://hogwatch.test/api/games/missing-game'), {});
+  assert.equal(game.status, 404);
+  const gameBody = await game.json() as { error?: string };
+  assert.equal(gameBody.error, 'not_found');
+});
+
+test('Worker makes live chat explicit when no server-side OpenAI key is configured', async () => {
+  const response = await worker.fetch(new Request('https://hogwatch.test/api/ask', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ entity: 'game', id: 'utah', metricIds: ['pressure-generated'] }),
+  }), {});
+  assert.equal(response.status, 503);
+  const body = await response.json() as { error?: string };
+  assert.equal(body.error, 'chat_unavailable');
+});
+
+test('Worker limits expensive live chat requests independently from MCP tools', async () => {
+  let limitCalls = 0;
+  const response = await worker.fetch(new Request('https://hogwatch.test/api/ask', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'cf-connecting-ip': '203.0.113.4' },
+    body: JSON.stringify({ entity: 'season', id: 'arkansas' }),
+  }), {
+    HOGWATCH_ASK_RATE_LIMITER: {
+      limit: async ({ key }) => {
+        limitCalls += 1;
+        assert.equal(key, 'hogwatch-ask:203.0.113.4');
+        return { success: false };
+      },
+    },
+  });
+  assert.equal(limitCalls, 1);
+  assert.equal(response.status, 429);
+  const body = await response.json() as { error?: string };
+  assert.equal(body.error, 'rate_limited');
+});
