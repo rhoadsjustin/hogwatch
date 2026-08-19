@@ -46,7 +46,7 @@ const parseOutput = (payload: ResponsesPayload) => {
   return { json, sources: [...sourceByUrl.values()] };
 };
 
-const parseCachedSnapshot = (value: unknown): LiveScheduleSnapshot | undefined => {
+export const validateLiveScheduleSnapshot = (value: unknown): LiveScheduleSnapshot | undefined => {
   const snapshot = record(value);
   const provenance = record(snapshot?.provenance);
   const season = seasonValue(snapshot?.season);
@@ -84,7 +84,7 @@ export class OpenAIWebSearchScheduleProvider {
 
   private async fromCacheOrRequest(season: number, now: () => Date): Promise<LiveScheduleSnapshot> {
     const key = cacheKey(season);
-    const cached = this.options.cache ? parseCachedSnapshot(await this.options.cache.get(key)) : undefined;
+    const cached = this.options.cache ? validateLiveScheduleSnapshot(await this.options.cache.get(key)) : undefined;
     if (cached) return cached;
     const snapshot = await this.request(season, now);
     const ttlSeconds = Math.max(60, Math.ceil((this.options.ttlMs ?? 15 * 60_000) / 1_000));
