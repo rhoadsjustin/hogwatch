@@ -6,3 +6,5 @@ node_modules
 *.tsbuildinfo
 .DS_Store
 apps/mcp/.wrangler/
+apps/mobile/.expo/
+apps/mobile/dist/

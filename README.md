@@ -7,6 +7,7 @@ HogWatch helps Arkansas fans evaluate the 2026 Razorbacks beyond wins and losses
 
 ## What is included
 - Next.js responsive web UI matching the approved mock direction
+- Native Expo iOS client using the same analytics repository contract
 - Season dashboard, game detail, coach detail, player detail, trends
 - Shared TypeScript domain model and HOG Index calculator
 - Mock 2026 Arkansas data behind a shared, provider-independent repository
@@ -19,6 +20,17 @@ npm run dev
 ```
 
 Run MCP separately with `npm run dev:mcp`.
+
+Run the native iOS app with Expo Go or an iOS Simulator:
+
+```bash
+npm run ios
+```
+
+The mobile app currently composes `mockHogWatchRepository` in
+`apps/mobile/src/data/repository.ts`. This preserves the screen-to-repository
+boundary while a mobile-safe authenticated data API is designed; it never
+bundles an OpenAI key or calls the live-search provider directly.
 
 ## Verification
 
