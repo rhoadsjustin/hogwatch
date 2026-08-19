@@ -4,8 +4,10 @@
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
     "dev": "npm run dev -w @hogwatch/web",
+    "dev:mobile": "npm run start -w @hogwatch/mobile",
     "dev:mcp": "npm run dev -w @hogwatch/mcp",
     "build": "npm run build -w @hogwatch/web",
+    "ios": "npm run ios -w @hogwatch/mobile",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present"
   }

@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "HogWatch",
+    "slug": "hogwatch",
+    "scheme": "hogwatch",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "bundleIdentifier": "com.hogwatch.app",
+      "supportsTablet": true
+    },
+    "plugins": ["expo-router"]
+  }
+}
