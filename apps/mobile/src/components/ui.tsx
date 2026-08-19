@@ -1,7 +1,8 @@
-import type { PropsWithChildren, ReactNode } from 'react';
+import { useState, type PropsWithChildren, type ReactNode } from 'react';
 import { Pressable, Share, Text, View } from 'react-native';
 
 import { colors, radius } from '@/theme';
+import type { HogWatchChatClient } from '@/data/worker-client';
 
 export function Card({ children, tone = 'light' }: PropsWithChildren<{ tone?: 'light' | 'dark' | 'cardinal' }>) {
   const backgroundColor = tone === 'dark' ? colors.charcoal : tone === 'cardinal' ? colors.cardinal : colors.surface;
@@ -71,15 +72,36 @@ export function MetricDelta({ delta, goodDirection }: { delta?: number; goodDire
   return <Text selectable style={{ color: favorable ? colors.positive : colors.warning, fontSize: 13, fontWeight: '800' }}>{arrow} {Math.abs(delta).toFixed(0)} vs W1</Text>;
 }
 
-export function AskChatGPT({ entity, id, metricIds }: { entity: string; id: string; metricIds: readonly string[] }) {
+export function AskChatGPT({ entity, id, metricIds, chatClient }: { entity: 'season' | 'game' | 'coach' | 'player' | 'metric'; id: string; metricIds: readonly string[]; chatClient?: HogWatchChatClient }) {
+  const [answer, setAnswer] = useState<string>();
+  const [error, setError] = useState<string>();
+  const [loading, setLoading] = useState(false);
   const onPress = async () => {
+    if (chatClient) {
+      setLoading(true);
+      setError(undefined);
+      try {
+        const result = await chatClient.ask({ entity, id, metricIds });
+        setAnswer(result.answer);
+      } catch (requestError) {
+        setAnswer(undefined);
+        setError(requestError instanceof Error ? requestError.message : 'Live chat is temporarily unavailable.');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
     const context = JSON.stringify({ app: 'HogWatch', entity, id, metricIds });
     await Share.share({ message: `Use this HogWatch context to explain the football story: ${context}` });
   };
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1, backgroundColor: colors.ink, borderRadius: radius.small, borderCurve: 'continuous', paddingHorizontal: 15, paddingVertical: 13, alignItems: 'center' })}>
-      <Text selectable style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>Ask ChatGPT about this</Text>
-    </Pressable>
+    <View style={{ gap: 10 }}>
+      <Pressable accessibilityRole="button" accessibilityState={{ busy: loading }} onPress={onPress} disabled={loading} style={({ pressed }) => ({ opacity: pressed || loading ? 0.75 : 1, backgroundColor: colors.ink, borderRadius: radius.small, borderCurve: 'continuous', paddingHorizontal: 15, paddingVertical: 13, alignItems: 'center' })}>
+        <Text selectable style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>{loading ? 'Reading the evidence…' : chatClient ? 'Ask HogWatch about this' : 'Ask ChatGPT about this'}</Text>
+      </Pressable>
+      {answer && <Card tone="dark"><Eyebrow light>HOGWATCH ANSWER</Eyebrow><Text selectable style={{ color: '#FFFFFF', fontSize: 15, lineHeight: 22, fontWeight: '700' }}>{answer}</Text></Card>}
+      {error && <Card><Text selectable style={{ color: colors.warning, fontSize: 14, lineHeight: 20, fontWeight: '700' }}>{error}</Text></Card>}
+    </View>
   );
 }
 
