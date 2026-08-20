@@ -15,7 +15,11 @@ const stripMarkup = (value: string) => value
   .trim();
 
 const capture = (value: string, expression: RegExp) => expression.exec(value)?.[1];
-const cacheKey = (season: number) => `hogwatch:official-arkansas:schedule:${season}:v1`;
+/**
+ * Bump the version whenever the parsed snapshot's shape changes — including its
+ * ID scheme — so a deploy never reads a cached snapshot in the old shape.
+ */
+const cacheKey = (season: number) => `hogwatch:official-arkansas:schedule:${season}:v2`;
 const knownOpponentShortNames: Record<string, string> = {
   'North Alabama': 'UNA', Utah: 'UTAH', Georgia: 'UGA', Tulsa: 'TLSA', 'Texas A&M': 'TAMU',
   Tennessee: 'TENN', Vanderbilt: 'VAND', Missouri: 'MIZZ', Auburn: 'AUB', 'South Carolina': 'SCAR', Texas: 'TEX', LSU: 'LSU',
