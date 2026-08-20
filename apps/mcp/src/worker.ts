@@ -3,7 +3,7 @@ import { createHogWatchRepository, type HogWatchRepository, type LiveScheduleCac
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 
 import { createHogWatchServer } from './server.js';
-import { createHogWatchChat, HogWatchChatNotFoundError, HogWatchChatUnavailableError, isChatEntity, type HogWatchChatRequest } from './hogwatch-chat.js';
+import { createHogWatchChat, HogWatchChatNotFoundError, HogWatchChatUnavailableError, isChatEntity, type HogWatchChatRequest, type HogWatchChatTurn } from './hogwatch-chat.js';
 
 export type WorkerEnvironment = {
   OPENAI_API_KEY?: string;
@@ -107,6 +107,7 @@ const api = async (request: Request, environment: WorkerEnvironment): Promise<Re
   if (request.method === 'GET' && pathname === '/api/games') return json({ data: await repository.listGames() });
   if (request.method === 'GET' && pathname === '/api/coaches') return json({ data: await repository.listCoaches() });
   if (request.method === 'GET' && pathname === '/api/players') return json({ data: await repository.listPlayers() });
+  if (request.method === 'GET' && pathname === '/api/prediction-record') return json({ data: await repository.getPredictionRecord() });
   if (request.method === 'GET' && pathname === '/api/games/compare') {
     const gameAId = url.searchParams.get('gameAId');
     const gameBId = url.searchParams.get('gameBId');
@@ -115,6 +116,11 @@ const api = async (request: Request, environment: WorkerEnvironment): Promise<Re
     return data ? json({ data }) : apiNotFound();
   }
 
+  const matchupGameId = /^\/api\/matchups\/([^/]+)$/.exec(pathname)?.[1];
+  if (request.method === 'GET' && matchupGameId) {
+    const data = await repository.getMatchupPreview(decodeURIComponent(matchupGameId));
+    return data ? json({ data }) : apiNotFound();
+  }
   const gameId = /^\/api\/games\/([^/]+)$/.exec(pathname)?.[1];
   if (request.method === 'GET' && gameId) {
     const data = await repository.getGameAnalysis(decodeURIComponent(gameId));
@@ -147,6 +153,22 @@ const api = async (request: Request, environment: WorkerEnvironment): Promise<Re
   const entity = typeof input?.entity === 'string' ? input.entity : undefined;
   const id = typeof input?.id === 'string' ? input.id : undefined;
   const metricIds = Array.isArray(input?.metricIds) && input.metricIds.every((value) => typeof value === 'string') ? input.metricIds as string[] : undefined;
+  const question = typeof input?.question === 'string' && input.question.trim() ? input.question.trim().slice(0, 500) : undefined;
+  const history = Array.isArray(input?.history)
+    ? input.history.flatMap((turn): HogWatchChatTurn[] => {
+      const entry = record(turn);
+      const role = entry?.role;
+      const content = entry?.content;
+      if ((role !== 'user' && role !== 'assistant') || typeof content !== 'string' || !content.trim()) return [];
+      return [{ role, content: content.trim().slice(0, 2000) }];
+    }).slice(-6)
+    : undefined;
+  const viewInput = record(input?.view);
+  const view = viewInput ? {
+    metricId: typeof viewInput.metricId === 'string' ? viewInput.metricId : undefined,
+    weeks: Array.isArray(viewInput.weeks) ? viewInput.weeks.filter((week): week is number => typeof week === 'number') : undefined,
+    screen: typeof viewInput.screen === 'string' ? viewInput.screen.slice(0, 120) : undefined,
+  } : undefined;
   if (!entity || !isChatEntity(entity) || !id || !id.trim()) {
     return json({ error: 'invalid_request', message: 'Provide a supported entity and non-empty ID.' }, 400);
   }
@@ -155,7 +177,7 @@ const api = async (request: Request, environment: WorkerEnvironment): Promise<Re
       apiKey: environment.OPENAI_API_KEY,
       model: environment.HOGWATCH_OPENAI_MODEL,
     });
-    const data = await chat.ask({ entity, id: id.trim(), metricIds } satisfies HogWatchChatRequest);
+    const data = await chat.ask({ entity, id: id.trim(), metricIds, question, history, view } satisfies HogWatchChatRequest);
     return json({ data });
   } catch (error) {
     if (error instanceof HogWatchChatNotFoundError) return apiNotFound();

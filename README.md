@@ -8,10 +8,12 @@ HogWatch helps Arkansas fans evaluate the 2026 Razorbacks beyond wins and losses
 ## What is included
 - Next.js responsive web UI matching the approved mock direction
 - Native Expo iOS client using the same analytics repository contract
-- Season dashboard, game detail, coach detail, player detail, trends
-- Shared TypeScript domain model, HOG Index calculator, and transparent pregame prediction calculator
+- Season dashboard, matchup preview, game grade, game comparison, coach detail, player detail, trends
+- Shared TypeScript domain model, HOG Index calculator, and a point-denominated pregame prediction model
+- Unit-vs-unit matchup previews on a shared national-percentile axis
+- A public prediction record: every call is kept after kickoff and scored
 - Mock 2026 Arkansas data behind a shared, provider-independent repository
-- MCP server exposing the same season, game, coach, player, trend, and comparison data as the web UI
+- MCP server exposing the same season, matchup, game, coach, player, trend, comparison, and record data as the web UI
 
 ## Run
 ```bash
@@ -32,6 +34,18 @@ The native app reads the same repository reports through the Worker when
 uses clearly labeled fixtures for Expo Go development. It never bundles an
 OpenAI key or calls a sports provider directly.
 
+The web app renders from the repository directly. Set
+`NEXT_PUBLIC_HOGWATCH_API_URL` to the same Worker origin to enable its Ask
+panel; without it the panel says so rather than presenting an inert button.
+
+**The Worker must be redeployed for prediction changes to reach the apps.** The
+native client reads predictions and matchup previews from the Worker, not from
+its own bundle:
+
+```bash
+npm run deploy:worker -w @hogwatch/mcp
+```
+
 ## Verification
 
 ```bash
@@ -43,11 +57,29 @@ npm run build
 The HOG Index is calculated in `@hogwatch/core` with documented component
 weights: offense 30%, defense 30%, coaching 25%, and development 15%.
 
-HogWatch Predictions are early, explainable pregame calls—not betting lines.
-The shared calculator weights current HOG form at 70% and camp readiness at
-30%, then applies the opponent comparison rating, location (2.5 points), and
-an explicit matchup adjustment. Each scheduled matchup shows its win chance,
-score projection, and inputs.
+HogWatch Predictions are explainable pregame calls—not betting lines. Every
+number is denominated in scoreboard points:
+
+- `ratingFromHogIndex` converts a 0–100 HOG grade into points above an average
+  FBS team (0.35 points per index point, average team at 50).
+- The margin is the difference of the two power ratings plus home field
+  (2.5 points) and a documented matchup adjustment.
+- The projected total comes from the offense/defense splits, so projected
+  scores move with the matchup instead of summing to a constant.
+- The win probability is the normal CDF of the same margin distribution that
+  produces the reported central-60% range (σ = 16 points), so the number and
+  the range can never disagree.
+- Arkansas's rating for a given week only uses games played *before* that week,
+  blended 70/30 with the camp baseline.
+
+Predictions are kept after kickoff and scored. `/trends` and the mobile Trends
+screen show correct calls, mean margin error, and a Brier score against a coin
+flip, so the model can be checked rather than trusted.
+
+Matchup previews put Arkansas and the opponent on the same direction-aware
+national percentile for each opposing unit. Values HogWatch has not measured
+are modelled from composite grades and are labelled `modelled` (shown as `~`)
+everywhere they appear.
 
 ## Architecture
 `packages/core` owns domain contracts, canonical advanced-metric metadata,

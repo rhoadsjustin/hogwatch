@@ -18,6 +18,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           </Link>
           <nav aria-label="Primary navigation">
             <Link href="/">Dashboard</Link>
+            <Link href="/compare">Compare</Link>
             <Link href="/trends">Trends</Link>
           </nav>
           <span className="season">2026 SEASON</span>

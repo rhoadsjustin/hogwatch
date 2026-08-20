@@ -1,3 +1,4 @@
+import { toHogWatchId } from '@hogwatch/core';
 import { type LiveScheduleCache, type LiveScheduleSnapshot, validateLiveScheduleSnapshot } from './openai-web-search.ts';
 
 const SCHEDULE_URL = 'https://arkansasrazorbacks.com/sport/m-footbl/schedule/';
@@ -45,7 +46,7 @@ export const parseArkansasOfficialSchedule = (html: string, season: number, upda
     const arkansasScore = result ? Number(result[2]) : undefined;
     const opponentScore = result ? Number(result[3]) : undefined;
     return {
-      id: opponent.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+      id: toHogWatchId(opponent),
       week: index + 1,
       date: stripMarkup(date).replace(/\./g, ''),
       opponent,

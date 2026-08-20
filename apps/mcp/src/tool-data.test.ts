@@ -29,6 +29,22 @@ test('MCP tool data exposes reports, trends, and game comparisons', async () => 
   assert.deepEqual(trend?.values, [31, 37]);
   assert.deepEqual(
     comparison?.metricComparisons.find((metric) => metric.metricId === 'four-man-pressure'),
-    { metricId: 'four-man-pressure', label: 'Four-man pressure', gameA: 22, gameB: 28, delta: 6, goodDirection: 'up' },
+    {
+      metricId: 'four-man-pressure', label: 'Four-man pressure', gameA: 22, gameB: 28, delta: 6, goodDirection: 'up',
+      gameAPercentile: 66, gameBPercentile: 95,
+    },
   );
+});
+
+test('MCP tool data exposes the matchup preview and the prediction record', async () => {
+  const tools = createHogWatchToolData(mockHogWatchRepository);
+  const [preview, record] = await Promise.all([
+    tools.getMatchupPreview('georgia'),
+    tools.getPredictionRecord(),
+  ]);
+
+  assert.equal(preview?.opponent.name, 'Georgia');
+  assert.ok((preview?.edges.length ?? 0) >= 4);
+  assert.equal(record.gamesScored, 2);
+  assert.equal(record.coinFlipBrierScore, 0.25);
 });

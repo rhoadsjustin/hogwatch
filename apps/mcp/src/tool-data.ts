@@ -10,6 +10,8 @@ export function createHogWatchToolData(repository: HogWatchRepository) {
   return {
     getSeasonDashboard: () => repository.getSeasonDashboard(),
     getGameAnalysis: (gameId: string) => repository.getGameAnalysis(gameId),
+    getMatchupPreview: (gameId: string) => repository.getMatchupPreview(gameId),
+    getPredictionRecord: () => repository.getPredictionRecord(),
     getCoachReport: (coachId: string) => repository.getCoachReport(coachId),
     getPlayerReport: (playerId: string) => repository.getPlayerReport(playerId),
     getMetricTrend: (metricId: string) => isMetricId(metricId)

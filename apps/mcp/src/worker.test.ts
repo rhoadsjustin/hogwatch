@@ -97,3 +97,22 @@ test('Worker limits expensive live chat requests independently from MCP tools', 
   const body = await response.json() as { error?: string };
   assert.equal(body.error, 'rate_limited');
 });
+
+test('Worker serves the matchup preview and the prediction record over the JSON API', async () => {
+  const [preview, record, missing] = await Promise.all([
+    worker.fetch(new Request('https://hogwatch.test/api/matchups/georgia'), {}),
+    worker.fetch(new Request('https://hogwatch.test/api/prediction-record'), {}),
+    worker.fetch(new Request('https://hogwatch.test/api/matchups/not-a-game'), {}),
+  ]);
+
+  assert.equal(preview.status, 200);
+  const previewBody = await preview.json() as { data?: { opponent?: { name?: string }; edges?: unknown[] } };
+  assert.equal(previewBody.data?.opponent?.name, 'Georgia');
+  assert.ok((previewBody.data?.edges?.length ?? 0) >= 4);
+
+  assert.equal(record.status, 200);
+  const recordBody = await record.json() as { data?: { gamesScored?: number } };
+  assert.equal(recordBody.data?.gamesScored, 2);
+
+  assert.equal(missing.status, 404);
+});

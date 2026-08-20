@@ -58,6 +58,26 @@ export function createHogWatchServer(repository: HogWatchRepository = hogWatchRe
     return report ? response(report, `Returned the Week ${report.game.week} ${report.game.opponent} analysis with provenance.`) : missing('game', gameId);
   });
 
+  server.registerTool('get_matchup_preview', {
+    title: 'Get Arkansas matchup preview',
+    description: 'Use for a pregame matchup: unit-vs-unit collisions on a shared national-percentile scale, a point-denominated projection with its likely range, and the swing factors.',
+    inputSchema: { gameId: z.string().min(1).describe('HogWatch game ID, such as "georgia".') }, outputSchema: reportOrErrorSchema, annotations: readOnly,
+  }, async ({ gameId }) => {
+    const preview = await tools.getMatchupPreview(gameId);
+    return preview
+      ? response(preview, `Returned the Week ${preview.game.week} ${preview.opponent.name} matchup preview with provenance.`)
+      : missing('matchup', gameId);
+  });
+
+  server.registerTool('get_prediction_record', {
+    title: 'Get HogWatch prediction record',
+    description: 'Use to check how well HogWatch has predicted so far: correct calls, mean margin error, and Brier score against a coin flip.',
+    inputSchema: {}, outputSchema: reportSchema, annotations: readOnly,
+  }, async () => {
+    const record = await tools.getPredictionRecord();
+    return response(record, `Returned the prediction record across ${record.gamesScored} scored game${record.gamesScored === 1 ? '' : 's'}.`);
+  });
+
   server.registerTool('get_coach_report', {
     title: 'Get Arkansas coach report',
     description: 'Use for a HogWatch coach scorecard, coaching implication, and opponent-adjusted trend.',
@@ -87,7 +107,7 @@ export function createHogWatchServer(repository: HogWatchRepository = hogWatchRe
 
   server.registerTool('compare_games', {
     title: 'Compare Arkansas games',
-    description: 'Use to compare two completed Arkansas games across their shared canonical metrics.',
+    description: 'Use to compare two Arkansas games across their shared measured metrics, with a national percentile for each value. Both games must carry measured metrics; a final score is not required.',
     inputSchema: {
       gameAId: z.string().min(1).describe('Earlier or baseline HogWatch game ID.'),
       gameBId: z.string().min(1).describe('Later or comparison HogWatch game ID.'),
@@ -96,7 +116,7 @@ export function createHogWatchServer(repository: HogWatchRepository = hogWatchRe
     const comparison = await tools.compareGames(gameAId, gameBId);
     return comparison
       ? response(comparison, `Compared ${comparison.gameA.opponent} and ${comparison.gameB.opponent} with provenance.`)
-      : response({ error: 'comparison_unavailable', gameAId, gameBId, detail: 'Both game IDs must exist and refer to completed games.' }, 'The requested comparison is unavailable.');
+      : response({ error: 'comparison_unavailable', gameAId, gameBId, detail: 'Both game IDs must exist, differ, and carry measured metrics.' }, 'The requested comparison is unavailable.');
   });
 
   server.registerTool('render_season_dashboard', {
