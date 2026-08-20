@@ -1,6 +1,7 @@
 import {
   calculateOpponentAdjustedMetric,
   calculateRollingAverage,
+  calculateGamePrediction,
   isMetricId,
   calculateHogIndex,
   METRIC_IDS,
@@ -11,6 +12,7 @@ import {
   type Game,
   type GameAnalysis,
   type GameComparison,
+  type GamePrediction,
   type HogIndex,
   type Metric,
   type MetricComparison,
@@ -90,6 +92,23 @@ const games: Game[] = [
   { id: 'tennessee', week: 6, opponent: 'Tennessee', opponentShort: 'TENN', location: 'home', date: 'Oct 10', metrics: {} },
 ];
 
+/**
+ * Seeded, reviewable pregame inputs. They are deliberately kept at the data
+ * boundary so a future camp-report or opponent-data adapter can replace these
+ * fixtures without changing the prediction formula or either UI.
+ */
+const predictionProfiles: Record<string, {
+  campReadiness: number;
+  opponentComparisonRating: number;
+  matchupAdjustment?: number;
+  comparison: string;
+}> = {
+  georgia: { campReadiness: 77, opponentComparisonRating: 91, matchupAdjustment: -1.5, comparison: 'Georgia sets the season’s highest opponent benchmark; the pressure plan has to travel from Utah.' },
+  tulsa: { campReadiness: 77, opponentComparisonRating: 62, matchupAdjustment: 1, comparison: 'The current form and a home field give Arkansas its clearest early schedule edge.' },
+  'texas-am': { campReadiness: 77, opponentComparisonRating: 83, matchupAdjustment: -1, comparison: 'A road matchup against a top-tier comparison profile turns protection and explosives into the swing factors.' },
+  tennessee: { campReadiness: 77, opponentComparisonRating: 87, matchupAdjustment: 0.5, comparison: 'The home setting helps, but Arkansas needs its four-man pressure jump to hold against this comparison profile.' },
+};
+
 const mockProvenance: AnalyticsProvenance = {
   source: 'mock',
   provider: 'HogWatch fixture repository',
@@ -111,6 +130,40 @@ const players: Player[] = [
 const gameHogIndexes: Record<string, HogIndex> = {
   'north-alabama': calculateHogIndex({ offense: 67, defense: 70, coaching: 69, development: 66 }),
   utah: calculateHogIndex({ offense: 72, defense: 76, coaching: 75, development: 70 }),
+};
+
+const currentHogIndex = () => {
+  const values = Object.values(gameHogIndexes).map((index) => index.total);
+  return Math.round(values.reduce((total, value) => total + value, 0) / values.length);
+};
+
+const predictionFor = (game: Game): GamePrediction | undefined => {
+  if (game.result) return undefined;
+  const profile = predictionProfiles[game.id];
+  if (!profile) return undefined;
+  const projection = calculateGamePrediction({
+    currentHogIndex: currentHogIndex(),
+    campReadiness: profile.campReadiness,
+    opponentComparisonRating: profile.opponentComparisonRating,
+    location: game.location,
+    matchupAdjustment: profile.matchupAdjustment,
+  });
+  const lean = projection.winProbability >= 50 ? 'Arkansas' : game.opponent;
+  return {
+    ...projection,
+    summary: `${lean} has the early edge. ${profile.comparison}`,
+    factors: [
+      { label: 'Current HOG form', detail: `${currentHogIndex()} through Week 2`, tone: 'edge' },
+      { label: 'Camp readiness', detail: `${profile.campReadiness}/100`, tone: 'neutral' },
+      { label: 'Opponent comparison', detail: `${profile.opponentComparisonRating}/100 benchmark`, tone: profile.opponentComparisonRating > currentHogIndex() ? 'watch' : 'edge' },
+      { label: game.location === 'home' ? 'Home field' : 'Road test', detail: game.location === 'home' ? '2.5-point model boost' : '2.5-point model drag', tone: game.location === 'home' ? 'edge' : 'watch' },
+    ],
+  };
+};
+
+const withPrediction = (game: Game): Game => {
+  const prediction = predictionFor(game);
+  return prediction ? { ...game, prediction } : game;
 };
 
 const gameCopy: Record<string, Pick<GameAnalysis, 'story' | 'thesis'>> = {
@@ -178,7 +231,7 @@ const metricSignal = (metricId: MetricId, latest: Game, previous: Game): Metric 
   return { id: metricId, label: metadata.label, value, unit: metadata.suffix, delta: value - previousValue, goodDirection: metadata.goodDirection };
 };
 
-const gameAnalysis = (game: Game): GameAnalysis => ({ ...gameCopy[game.id], game, hogIndex: gameHogIndexes[game.id], provenance: mockProvenance });
+const gameAnalysis = (game: Game): GameAnalysis => ({ ...gameCopy[game.id], game: withPrediction(game), hogIndex: gameHogIndexes[game.id], provenance: mockProvenance });
 
 export class MockHogWatchRepository implements HogWatchRepository {
   async getSeasonDashboard(): Promise<SeasonDashboard> {
@@ -228,7 +281,7 @@ export class MockHogWatchRepository implements HogWatchRepository {
     return { gameA, gameB, metricComparisons, summary: 'The process improved from the opener: Arkansas allowed less pressure and generated more of its own, but explosive gains remain the volatile issue.', provenance: mockProvenance };
   }
 
-  async listGames(): Promise<Game[]> { return games; }
+  async listGames(): Promise<Game[]> { return games.map(withPrediction); }
   async listCoaches(): Promise<Coach[]> { return coaches; }
   async listPlayers(): Promise<Player[]> { return players; }
 }
@@ -278,7 +331,7 @@ class LiveScheduleRepository implements HogWatchRepository {
       const { games, provenance } = await this.schedule();
       const game = games.find((candidate) => candidate.id === gameId);
       return game ? {
-        game,
+        game: withPrediction(game),
         thesis: game.result ? 'Final score confirmed; advanced grading is pending.' : 'The official schedule is confirmed.',
         story: game.result
           ? 'HogWatch will publish a scorecard after its advanced metrics are independently verified.'
@@ -292,7 +345,7 @@ class LiveScheduleRepository implements HogWatchRepository {
   async getPlayerReport(playerId: string) { return this.fallback.getPlayerReport(playerId); }
   async getMetricTrend(query: MetricTrendQuery) { return this.fallback.getMetricTrend(query); }
   async compareGames(gameAId: string, gameBId: string) { return this.fallback.compareGames(gameAId, gameBId); }
-  async listGames() { return this.fallbackOnFailure(async () => (await this.schedule()).games, () => this.fallback.listGames()); }
+  async listGames() { return this.fallbackOnFailure(async () => (await this.schedule()).games.map(withPrediction), () => this.fallback.listGames()); }
   async listCoaches() { return this.fallback.listCoaches(); }
   async listPlayers() { return this.fallback.listPlayers(); }
 }

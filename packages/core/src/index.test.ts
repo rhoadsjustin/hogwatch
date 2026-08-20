@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  calculateGamePrediction,
   calculateHogIndex,
   calculateOpponentAdjustedMetric,
   calculateRollingAverage,
@@ -42,6 +43,33 @@ test('a perfect score produces a 100-point HOG Index', () => {
     calculateHogIndex({ offense: 100, defense: 100, coaching: 100, development: 100 }).total,
     100,
   );
+});
+
+test('pregame prediction keeps camp, form, comparison, and location inputs transparent', () => {
+  const home = calculateGamePrediction({
+    currentHogIndex: 71,
+    campReadiness: 77,
+    opponentComparisonRating: 62,
+    location: 'home',
+    matchupAdjustment: 1,
+  });
+  const road = calculateGamePrediction({
+    currentHogIndex: 71,
+    campReadiness: 77,
+    opponentComparisonRating: 62,
+    location: 'away',
+    matchupAdjustment: 1,
+  });
+
+  assert.deepEqual(home, {
+    winProbability: 86,
+    projectedArkansasScore: 34,
+    projectedOpponentScore: 19,
+    projectedMargin: 14.3,
+    confidence: 'early',
+  });
+  assert.equal(home.projectedMargin - road.projectedMargin, 5);
+  assert.ok(home.winProbability > road.winProbability);
 });
 
 test('canonical metric metadata includes every documented advanced input', () => {

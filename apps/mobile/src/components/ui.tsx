@@ -3,6 +3,7 @@ import { Pressable, Share, Text, View } from 'react-native';
 
 import { colors, radius } from '@/theme';
 import type { HogWatchChatClient } from '@/data/worker-client';
+import type { GamePrediction } from '@hogwatch/core';
 
 export function Card({ children, tone = 'light' }: PropsWithChildren<{ tone?: 'light' | 'dark' | 'cardinal' }>) {
   const backgroundColor = tone === 'dark' ? colors.charcoal : tone === 'cardinal' ? colors.cardinal : colors.surface;
@@ -39,15 +40,24 @@ export function Pill({ children, tone = 'neutral' }: PropsWithChildren<{ tone?: 
   return <View style={{ alignSelf: 'flex-start', borderRadius: radius.pill, borderCurve: 'continuous', paddingHorizontal: 9, paddingVertical: 5, backgroundColor: palette.backgroundColor }}><Text selectable style={{ color: palette.color, fontSize: 11, fontWeight: '800' }}>{children}</Text></View>;
 }
 
-export function DataProvenance({ coverage, source }: { coverage: string; source: string }) {
+export function PredictionCard({ prediction }: { prediction: GamePrediction }) {
+  const lean = prediction.winProbability >= 50 ? 'ARKANSAS LEAN' : 'UPSET PATH';
   return (
-    <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start', backgroundColor: '#EEE8E2', borderRadius: radius.small, borderCurve: 'continuous', padding: 12 }}>
-      <Text accessibilityLabel="Data provenance" style={{ color: colors.cardinal, fontSize: 16 }}>●</Text>
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text selectable style={{ color: colors.ink, fontSize: 12, fontWeight: '800' }}>{source === 'mock' ? 'Fixture data' : 'Provider data'}</Text>
-        <Text selectable style={{ color: colors.muted, fontSize: 12, lineHeight: 17 }}>{coverage}</Text>
+    <Card tone="dark">
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+        <View style={{ flex: 1, gap: 4 }}>
+          <Eyebrow light>HOGWATCH PREDICTION</Eyebrow>
+          <Text selectable style={{ color: '#FFFFFF', fontSize: 22, lineHeight: 27, fontWeight: '900' }}>{lean}</Text>
+          <Text selectable style={{ color: '#D7D2D0', fontSize: 13, lineHeight: 19 }}>Early model · form, camp, comparison, location</Text>
+        </View>
+        <View style={{ alignItems: 'flex-end' }}><Text selectable style={{ color: '#F6D9DE', fontSize: 10, fontWeight: '800' }}>WIN CHANCE</Text><Text selectable style={{ color: '#FFFFFF', fontSize: 37, lineHeight: 40, fontWeight: '900', fontVariant: ['tabular-nums'] }}>{prediction.winProbability}%</Text></View>
       </View>
-    </View>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#FFFFFF24', borderBottomWidth: 1, borderBottomColor: '#FFFFFF24' }}>
+        <Text selectable style={{ color: '#FFFFFF', fontSize: 26, fontWeight: '900', fontVariant: ['tabular-nums'] }}>{prediction.projectedArkansasScore}</Text><Text selectable style={{ color: '#D7D2D0', fontSize: 14, fontWeight: '800' }}>ARK</Text><Text selectable style={{ color: '#937D83', fontSize: 18 }}>—</Text><Text selectable style={{ color: '#FFFFFF', fontSize: 26, fontWeight: '900', fontVariant: ['tabular-nums'] }}>{prediction.projectedOpponentScore}</Text><Text selectable style={{ color: '#D7D2D0', fontSize: 14, fontWeight: '800' }}>OPP</Text>
+      </View>
+      <Text selectable style={{ color: '#E0DBD9', fontSize: 14, lineHeight: 20 }}>{prediction.summary}</Text>
+      <View style={{ gap: 8 }}>{prediction.factors.map((factor) => <View key={factor.label} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}><Text selectable style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '800' }}>{factor.label}</Text><Text selectable style={{ color: factor.tone === 'edge' ? '#A8D5A5' : factor.tone === 'watch' ? '#E6BD68' : '#D7D2D0', fontSize: 12, fontWeight: '700', textAlign: 'right', flex: 1 }}>{factor.detail}</Text></View>)}</View>
+    </Card>
   );
 }
 

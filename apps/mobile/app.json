@@ -6,10 +6,30 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "icon": "./assets/hogwatch-icon.png",
     "ios": {
       "bundleIdentifier": "com.hogwatch.app",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "icon": "./assets/hogwatch-icon.png"
     },
-    "plugins": ["expo-router"]
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/hogwatch-mark.png",
+          "imageWidth": 180,
+          "resizeMode": "contain",
+          "backgroundColor": "#9D2235"
+        }
+      ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "8950d9cb-853b-4ab1-bf58-a79a88a4b93a"
+      }
+    },
+    "owner": "rhoadsjustin"
   }
 }

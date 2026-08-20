@@ -16,6 +16,21 @@ test('metric trends and comparisons are derived from the same completed games', 
   assert.deepEqual(comparison?.metricComparisons.find((metric) => metric.metricId === 'pressure-allowed'), { metricId: 'pressure-allowed', label: 'Pressure allowed', gameA: 34, gameB: 29, delta: -5, goodDirection: 'down' });
 });
 
+test('scheduled games receive transparent early predictions while completed games do not', async () => {
+  const [games, report] = await Promise.all([
+    mockHogWatchRepository.listGames(),
+    mockHogWatchRepository.getGameAnalysis('tulsa'),
+  ]);
+  const tulsa = games.find((game) => game.id === 'tulsa');
+  const utah = games.find((game) => game.id === 'utah');
+
+  assert.deepEqual(tulsa?.prediction?.projectedArkansasScore, 34);
+  assert.equal(tulsa?.prediction?.winProbability, 86);
+  assert.match(tulsa?.prediction?.summary ?? '', /early edge/i);
+  assert.deepEqual(report?.game.prediction, tulsa?.prediction);
+  assert.equal(utah?.prediction, undefined);
+});
+
 test('the repository applies its explicit rolling and opponent-adjusted trend options', async () => {
   const trend = await mockHogWatchRepository.getMetricTrend({
     metricId: 'pressure-allowed',

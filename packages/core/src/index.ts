@@ -105,6 +105,36 @@ export type Game = {
   hogIndex?: number;
   metrics: Partial<Record<MetricId, number>>;
   opponentMetricBaselines?: Partial<Record<MetricId, OpponentMetricBaseline>>;
+  prediction?: GamePrediction;
+};
+
+export type PredictionFactor = {
+  label: string;
+  detail: string;
+  tone: 'edge' | 'watch' | 'neutral';
+};
+
+/**
+ * A transparent pregame call built from HogWatch's current form, camp
+ * readiness, opponent comparison rating, and location. It is intentionally
+ * separate from the postgame HOG Index: predictions should not alter grades.
+ */
+export type GamePrediction = {
+  winProbability: number;
+  projectedArkansasScore: number;
+  projectedOpponentScore: number;
+  projectedMargin: number;
+  confidence: 'early';
+  summary: string;
+  factors: readonly PredictionFactor[];
+};
+
+export type PredictionInput = {
+  currentHogIndex: number;
+  campReadiness: number;
+  opponentComparisonRating: number;
+  location: Game['location'];
+  matchupAdjustment?: number;
 };
 
 export type Coach = {
@@ -174,6 +204,24 @@ export const calculateHogIndex = (x: Omit<HogIndex, 'total'>): HogIndex => ({
       x.development * HOG_INDEX_WEIGHTS.development,
   ),
 });
+
+const clamp = (value: number, minimum: number, maximum: number) => Math.min(maximum, Math.max(minimum, value));
+
+/**
+ * Turns the shared pregame inputs into a repeatable score projection. Current
+ * in-season form receives more weight than camp readiness (70/30); home field
+ * is worth 2.5 points. The opponent comparison rating and any matchup-specific
+ * adjustment are both expressed on the same 0–100 HOG-style scale.
+ */
+export const calculateGamePrediction = (input: PredictionInput): Omit<GamePrediction, 'summary' | 'factors'> => {
+  const teamReadiness = input.currentHogIndex * 0.7 + input.campReadiness * 0.3;
+  const locationAdjustment = input.location === 'home' ? 2.5 : -2.5;
+  const projectedMargin = Math.round((teamReadiness - input.opponentComparisonRating + locationAdjustment + (input.matchupAdjustment ?? 0)) * 10) / 10;
+  const winProbability = Math.round((1 / (1 + Math.exp(-projectedMargin / 8))) * 100);
+  const projectedArkansasScore = Math.round(clamp(26.5 + projectedMargin / 2, 10, 48));
+  const projectedOpponentScore = Math.round(clamp(26.5 - projectedMargin / 2, 10, 48));
+  return { winProbability, projectedArkansasScore, projectedOpponentScore, projectedMargin, confidence: 'early' };
+};
 
 /**
  * A provider supplies these baselines in the same perspective as the raw

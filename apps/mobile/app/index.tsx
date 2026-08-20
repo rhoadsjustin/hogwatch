@@ -2,7 +2,7 @@ import type { Href } from 'expo-router';
 import { Link } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
-import { Card, DataProvenance, Eyebrow, LoadingState, MetricDelta, Pill, SectionHeader, TrendBars } from '@/components/ui';
+import { Card, Eyebrow, LoadingState, MetricDelta, Pill, SectionHeader, TrendBars } from '@/components/ui';
 import { hogWatchMobileRepository } from '@/data/repository';
 import { useHogWatchResource } from '@/data/use-hogwatch';
 import { colors, radius } from '@/theme';
@@ -43,8 +43,6 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      <DataProvenance source={dashboard.provenance.source} coverage={dashboard.provenance.coverage} />
-
       <Card tone="dark">
         <Eyebrow light>THE FILM SAYS</Eyebrow>
         <Text selectable style={{ color: '#FFFFFF', fontSize: 22, lineHeight: 28, fontWeight: '800' }}>{dashboard.story}</Text>
@@ -77,7 +75,7 @@ export default function DashboardScreen() {
 
       <View style={{ gap: 12 }}>
         <SectionHeader eyebrow="SCHEDULE" title="Results and what is next" />
-        <View style={{ backgroundColor: colors.surface, borderRadius: radius.card, borderCurve: 'continuous', overflow: 'hidden' }}>{games.map((game, index) => <Link href={`/games/${game.id}` as Href} key={game.id} asChild><Pressable style={{ flexDirection: 'row', gap: 12, alignItems: 'center', padding: 15, borderBottomWidth: index === games.length - 1 ? 0 : 1, borderBottomColor: colors.line }}><Text selectable style={{ color: colors.muted, fontSize: 12, fontWeight: '900', width: 26 }}>W{game.week}</Text><View style={{ flex: 1, gap: 2 }}><Text selectable style={{ color: colors.ink, fontSize: 15, fontWeight: '800' }}>{game.location === 'away' ? '@ ' : 'vs. '}{game.opponent}</Text><Text selectable style={{ color: colors.muted, fontSize: 12 }}>{game.date}</Text></View>{game.result ? <View style={{ alignItems: 'flex-end' }}><Text selectable style={{ color: game.result === 'W' ? colors.positive : colors.negative, fontSize: 14, fontWeight: '900' }}>{game.result} {game.arkansasScore}–{game.opponentScore}</Text><Text selectable style={{ color: colors.muted, fontSize: 11 }}>HOG {game.hogIndex ?? '—'}</Text></View> : <Text selectable style={{ color: colors.cardinal, fontSize: 13, fontWeight: '800' }}>Preview →</Text>}</Pressable></Link>)}</View>
+        <View style={{ backgroundColor: colors.surface, borderRadius: radius.card, borderCurve: 'continuous', overflow: 'hidden' }}>{games.map((game, index) => <Link href={`/games/${game.id}` as Href} key={game.id} asChild><Pressable style={{ flexDirection: 'row', gap: 12, alignItems: 'center', padding: 15, borderBottomWidth: index === games.length - 1 ? 0 : 1, borderBottomColor: colors.line }}><Text selectable style={{ color: colors.muted, fontSize: 12, fontWeight: '900', width: 26 }}>W{game.week}</Text><View style={{ flex: 1, gap: 2 }}><Text selectable style={{ color: colors.ink, fontSize: 15, fontWeight: '800' }}>{game.location === 'away' ? '@ ' : 'vs. '}{game.opponent}</Text><Text selectable style={{ color: colors.muted, fontSize: 12 }}>{game.date}</Text>{game.prediction && <Text selectable style={{ color: colors.cardinal, fontSize: 11, fontWeight: '800' }}>HOGWATCH: {game.prediction.winProbability}% · {game.prediction.projectedArkansasScore}–{game.prediction.projectedOpponentScore}</Text>}</View>{game.result ? <View style={{ alignItems: 'flex-end' }}><Text selectable style={{ color: game.result === 'W' ? colors.positive : colors.negative, fontSize: 14, fontWeight: '900' }}>{game.result} {game.arkansasScore}–{game.opponentScore}</Text><Text selectable style={{ color: colors.muted, fontSize: 11 }}>HOG {game.hogIndex ?? '—'}</Text></View> : <Text selectable style={{ color: colors.cardinal, fontSize: 13, fontWeight: '800' }}>{game.prediction ? 'Prediction →' : 'Preview →'}</Text>}</Pressable></Link>)}</View>
       </View>
     </ScrollView>
   );

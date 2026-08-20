@@ -1,7 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import { ScrollView, Text, View } from 'react-native';
 
-import { AskChatGPT, Card, DataProvenance, EmptyState, Eyebrow, LoadingState, Pill, SectionHeader } from '@/components/ui';
+import { AskChatGPT, Card, EmptyState, Eyebrow, LoadingState, Pill, PredictionCard, SectionHeader } from '@/components/ui';
 import { hogWatchMobileChat, hogWatchMobileRepository } from '@/data/repository';
 import { useHogWatchResource } from '@/data/use-hogwatch';
 import { METRIC_METADATA, METRIC_IDS } from '@hogwatch/core';
@@ -29,7 +29,7 @@ export default function GameReportScreen() {
         <Text selectable style={{ color: '#E0DBD9', fontSize: 15, lineHeight: 22 }}>{report.thesis}</Text>
       </Card>
 
-      <DataProvenance source={report.provenance.source} coverage={report.provenance.coverage} />
+      {!game.result && game.prediction && <PredictionCard prediction={game.prediction} />}
 
       {hogIndex && <View style={{ gap: 12 }}>
         <SectionHeader eyebrow="HOG INDEX" title="The grade, broken down" />

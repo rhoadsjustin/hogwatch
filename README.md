@@ -9,7 +9,7 @@ HogWatch helps Arkansas fans evaluate the 2026 Razorbacks beyond wins and losses
 - Next.js responsive web UI matching the approved mock direction
 - Native Expo iOS client using the same analytics repository contract
 - Season dashboard, game detail, coach detail, player detail, trends
-- Shared TypeScript domain model and HOG Index calculator
+- Shared TypeScript domain model, HOG Index calculator, and transparent pregame prediction calculator
 - Mock 2026 Arkansas data behind a shared, provider-independent repository
 - MCP server exposing the same season, game, coach, player, trend, and comparison data as the web UI
 
@@ -43,9 +43,16 @@ npm run build
 The HOG Index is calculated in `@hogwatch/core` with documented component
 weights: offense 30%, defense 30%, coaching 25%, and development 15%.
 
+HogWatch Predictions are early, explainable pregame calls—not betting lines.
+The shared calculator weights current HOG form at 70% and camp readiness at
+30%, then applies the opponent comparison rating, location (2.5 points), and
+an explicit matchup adjustment. Each scheduled matchup shows its win chance,
+score projection, and inputs.
+
 ## Architecture
 `packages/core` owns domain contracts, canonical advanced-metric metadata,
-opponent adjustment, rolling-window primitives, and scoring. `packages/data`
+opponent adjustment, rolling-window primitives, prediction scoring, and HOG
+Index scoring. `packages/data`
 owns the `HogWatchRepository` contract, a normalized provider boundary, and
 its mock implementation. Both `apps/web` and `apps/mcp` consume that
 repository, so a future stats provider can replace the mock without changing
@@ -82,8 +89,8 @@ Copy `.env.example` to `.env.local` and set `HOGWATCH_LIVE_DATA_ENABLED=true`.
 No OpenAI key is required for the normal live schedule path. An administrator
 may set `HOGWATCH_OPENAI_WEB_SEARCH_FALLBACK=true` and provide
 `OPENAI_API_KEY` only to recover from an official-source outage; this is never
-exposed as a public MCP tool. The data-status panel exposes the official source
-citation.
+exposed as a public MCP tool. MCP responses retain the official-source citation
+for grounded answers.
 
 ## ChatGPT App deployment (Cloudflare Worker)
 

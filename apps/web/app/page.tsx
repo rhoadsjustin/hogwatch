@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { AskCard } from '../components/AskCard';
-import { DataProvenance } from '../components/DataProvenance';
 import { HogIndexCard } from '../components/HogIndexCard';
 import { MetricCard } from '../components/MetricCard';
 import { SectionHeading } from '../components/PageChrome';
@@ -35,8 +34,6 @@ export default async function Home() {
         </div>
         <div className="recordBlock"><span className="overline">RECORD</span><strong>{dashboard.record.replace('-', '–')}</strong><span>Projected: {dashboard.projectedRecord}</span></div>
       </section>
-
-      <DataProvenance provenance={dashboard.provenance} />
 
       <section className="dashboardLead" aria-label="Season overview">
         {dashboard.hogIndex && <HogIndexCard delta={dashboard.hogIndexDelta ?? 0} index={dashboard.hogIndex} week={latest?.week ?? 0} />}
@@ -78,7 +75,7 @@ export default async function Home() {
           {games.map((game) => <Link href={`/games/${game.id}`} className={`gameRow ${game.result ? 'completed' : 'upcoming'}`} key={game.id}>
             <span className="weekLabel">W{game.week}</span>
             <span className="opponent"><b>{game.location === 'away' ? '@ ' : 'vs. '}{game.opponent}</b><small>{game.date}</small></span>
-            {game.result ? <span className={`gameResult ${game.result === 'W' ? 'win' : 'loss'}`}>{game.result} <b>{game.arkansasScore}–{game.opponentScore}</b></span> : <span className="gameResult next">Preview <b>→</b></span>}
+            {game.result ? <span className={`gameResult ${game.result === 'W' ? 'win' : 'loss'}`}>{game.result} <b>{game.arkansasScore}–{game.opponentScore}</b></span> : game.prediction ? <span className="gameResult prediction"><small>HOGWATCH</small><b>{game.prediction.winProbability}% · {game.prediction.projectedArkansasScore}–{game.prediction.projectedOpponentScore}</b></span> : <span className="gameResult next">Preview <b>→</b></span>}
             <span className="rowIndex">{game.hogIndex ? <><b>{game.hogIndex}</b><small>HOG</small></> : '—'}</span>
           </Link>)}
         </div>
