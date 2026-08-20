@@ -17,6 +17,12 @@ const scheduleHtml = `
       <div class="opponent"><span>at Utah</span></div>
       <div class="results-container"><a class="results win">W, 31-24</a></div>
     </div>
+    <div class="item">
+      <div class="type away">Away</div>
+      <span class="month">Sat. <strong>Oct. 3</strong></span>
+      <div class="opponent"><span>at Texas A&amp;M</span></div>
+      <div class="results-container"></div>
+    </div>
   </section>`;
 
 test('official Arkansas schedule provider normalizes schedule entries and final scores', async () => {
@@ -35,7 +41,21 @@ test('official Arkansas schedule provider normalizes schedule entries and final 
   assert.deepEqual(snapshot.games.map((game) => ({ opponent: game.opponent, result: game.result, arkansasScore: game.arkansasScore, opponentScore: game.opponentScore })), [
     { opponent: 'North Alabama', result: undefined, arkansasScore: undefined, opponentScore: undefined },
     { opponent: 'Utah', result: 'W', arkansasScore: 31, opponentScore: 24 },
+    { opponent: 'Texas A&M', result: undefined, arkansasScore: undefined, opponentScore: undefined },
   ]);
+});
+
+test('the live schedule emits the same canonical IDs the fixture repository uses', async () => {
+  const provider = new ArkansasOfficialScheduleProvider({
+    now: () => new Date('2026-09-12T23:00:00.000Z'),
+    fetch: async () => new Response(scheduleHtml, { status: 200 }),
+  });
+
+  const snapshot = await provider.getSeasonSchedule();
+
+  // 'Texas A&M' previously slugged to 'texas-a-m' here and 'texas-am' in the
+  // fixtures, which silently dropped the game's preview.
+  assert.deepEqual(snapshot.games.map((game) => game.id), ['north-alabama', 'utah', 'texas-am']);
 });
 
 test('official Arkansas schedule provider uses the shared KV-compatible cache before fetching', async () => {
@@ -53,5 +73,5 @@ test('official Arkansas schedule provider uses the shared KV-compatible cache be
     cache,
     fetch: async () => { throw new Error('a KV cache hit must not fetch the official source'); },
   });
-  assert.equal((await second.getSeasonSchedule()).games.length, 2);
+  assert.equal((await second.getSeasonSchedule()).games.length, 3);
 });

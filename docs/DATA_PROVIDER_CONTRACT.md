@@ -33,6 +33,29 @@ coach scorecard inputs, and the four HOG Index component scores. Every value
 must retain its raw provider field name in `NormalizedMetricValue.sourceField`
 so ingestion logs can be audited without exposing vendor payloads to clients.
 
+## Opponent team profiles
+
+A matchup preview compares two teams, so an adapter must supply the opponent as
+a team, not as a name. For every scheduled opponent, provide:
+
+| Field | Meaning |
+| --- | --- |
+| `name`, `shortName` | Display strings. The canonical ID is derived with `toHogWatchId(name)`; never invent your own slug. |
+| `grades.total` | Composite team strength on the HOG 0–100 scale. |
+| `grades.offense`, `grades.defense` | Side-of-the-ball strength on the same scale. |
+| `grades.units` | Optional per-metric grades where a unit differs from its side of the ball (an elite pass rush on an average defence). |
+| `metrics` | Any canonical metric the vendor actually measures for that team, in the same units and perspective as the Arkansas table above. |
+
+Anything not supplied under `metrics` is modelled from the grades with
+`metricValueFromUnitGrade` and reported to clients with `basis: 'modelled'`.
+Presentation surfaces must keep that distinction visible — a modelled value and
+a measured value are not interchangeable evidence.
+
+Grades feed `ratingFromHogIndex`, which converts them to points above an
+average FBS team. The projection subtracts two point-denominated ratings, so a
+provider that supplies ratings on any other scale will produce margins in the
+wrong unit.
+
 ## Opponent adjustment and rolling windows
 
 For each opponent-adjusted metric, provide the opponent's pre-game average in
@@ -48,6 +71,10 @@ adjusted = raw - (opponent average - league average)
 ```
 
 It preserves the metric's unit and is intentionally not a predictive model.
+Separately, `METRIC_DISTRIBUTIONS` holds the reference FBS mean and standard
+deviation for every canonical metric. It is the single source of truth for
+chart domains and for direction-aware percentiles, and a provider with real
+league distributions should replace it wholesale rather than layering on top.
 `calculateRollingAverage` produces a trailing average, using the available
 games for early-season windows. Provider implementations should state their
 baseline source and game cutoff in `AnalyticsProvenance.coverage`.
@@ -59,5 +86,9 @@ baseline source and game cutoff in `AnalyticsProvenance.coverage`.
 3. Reject duplicate canonical values for a game rather than silently choosing one.
 4. Populate `opponentMetricBaselines` only from pre-game data; never leak
    post-game information into an adjustment.
-5. Replace the composition root's mock repository only after adapter contract
+5. Derive every game and team ID with `toHogWatchId` so the schedule provider,
+   the fixture repository, and the stats vendor resolve the same opponent.
+6. Label modelled values with `basis: 'modelled'`; never present them as
+   measured.
+7. Replace the composition root's mock repository only after adapter contract
    tests cover fixture, missing-data, and freshness behavior.

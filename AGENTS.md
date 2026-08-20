@@ -18,11 +18,21 @@ Build a polished, mobile-first Arkansas Razorbacks football analytics product th
 - Future `packages/data`: provider adapters, persistence, normalization.
 
 ## MVP routes
-- `/` Season dashboard: record, HOG Index, latest game, biggest improvements/concerns, schedule.
-- `/games/[id]`: matchup/result, HOG Index breakdown, offense/defense/coaching metrics, game story.
+- `/` Season dashboard: record, HOG Index, latest game, biggest improvements/concerns, next-up call, schedule.
+- `/games/[id]`: matchup preview (unit collisions + projection) before kickoff; HOG Index breakdown, scorecard metrics, and game story after.
+- `/compare`: any two games with measured metrics, side by side on national percentiles.
 - `/coaches/[id]`: Silverfield/Cramsey/Roberts scorecard and weekly trend.
 - `/players/[id]`: player card, weekly metrics, role/stock trend.
 - `/trends`: season metric explorer with rolling and opponent-adjusted views.
+
+## Prediction model
+Predictions are denominated in scoreboard points, never in index units.
+`ratingFromHogIndex` converts a HOG grade to points above an average FBS team;
+the margin is a difference of ratings plus home field and a documented matchup
+adjustment; the win probability is the normal CDF of the same distribution that
+produces the reported range. Predictions are retained after kickoff and scored
+(`scorePrediction`), and the running record is exposed as a report. Do not
+silently change `POWER_RATING`; update tests and documentation in the same PR.
 
 ## HOG Index
 100-point model:
@@ -42,14 +52,20 @@ Do not silently change weights. If weights change, update tests and documentatio
 - `get_player_report`
 - `get_metric_trend`
 - `compare_games`
-- later: `compare_opponents`, `get_position_group`, `get_drive_analysis`
+- `get_matchup_preview`
+- `get_prediction_record`
+- later: `get_position_group`, `get_drive_analysis`
 
 Tool results should return concise structured JSON suitable for both model reasoning and custom ChatGPT UI. Avoid returning presentation HTML from tools.
 
 ## UI direction
 Use the approved HogWatch visual direction: Arkansas-cardinal accents, dark/neutral high-contrast surfaces, large numeric scorecards, compact trend indicators, strong spacing, and minimal chrome. Avoid generic admin-dashboard styling. Charts must remain legible on mobile.
 
-Every major detail view should include an `Ask ChatGPT about this` affordance. Build the context payload as structured IDs/metrics, not a giant prose prompt.
+Every major detail view should include an Ask affordance. Build the context payload as structured IDs/metrics plus the on-screen view (selected metric, visible weeks), not a giant prose prompt. Answers return structured references so the app can tie prose back to the chart beside it.
+
+Charts must never autoscale to their own min/max. Use `metricChartDomain` for a fixed per-metric domain with the FBS average marked, and do not draw a trend line below `MINIMUM_TREND_POINTS` observations.
+
+Every surface must state its provenance. HogWatch mixes a live schedule with fixture-backed grading and modelled opponent values; a reader must always be able to tell which is which.
 
 ## Engineering rules
 - TypeScript strict mode.

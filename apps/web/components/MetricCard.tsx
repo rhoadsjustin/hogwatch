@@ -8,7 +8,12 @@ type MetricCardProps = {
   tone?: 'good' | 'watch' | 'neutral';
 };
 
-const trendCopy: Record<Trend, string> = { up: 'Improving', down: 'Slipping', flat: 'Holding' };
+/**
+ * The arrow describes which way the number moved; the word describes whether
+ * that was good football. They are not the same thing — pressure allowed
+ * falling is a down arrow and an improvement.
+ */
+const toneCopy = { good: 'Improving', watch: 'Slipping', neutral: 'Holding' } as const;
 
 export function MetricCard({ label, value, detail, trend, tone = 'neutral' }: MetricCardProps) {
   return (
@@ -17,7 +22,7 @@ export function MetricCard({ label, value, detail, trend, tone = 'neutral' }: Me
       <strong>{value}</strong>
       <div className="metricFoot">
         {detail && <span>{detail}</span>}
-        {trend && <b className={`metricTrend ${tone}`}>{trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→'} {trendCopy[trend]}</b>}
+        {trend && <b className={`metricTrend ${tone}`}>{trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→'} {toneCopy[tone]}</b>}
       </div>
     </article>
   );

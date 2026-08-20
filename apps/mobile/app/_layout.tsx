@@ -24,6 +24,7 @@ export default function RootLayout() {
         <Stack.Screen name="players/index" options={{ title: 'Player stock' }} />
         <Stack.Screen name="players/[id]" options={{ title: 'Player report', headerLargeTitle: false }} />
         <Stack.Screen name="trends" options={{ title: 'Trends' }} />
+        <Stack.Screen name="compare" options={{ title: 'Compare games' }} />
       </Stack>
     </>
   );
